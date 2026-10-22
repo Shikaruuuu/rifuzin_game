@@ -1,0 +1,254 @@
+<title>理不尽ゲーム</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap">
+<style>
+/* レイアウト：部室の黒板。一枚の板に、タイトル・試練・結末をチョークで書いては消す */
+:root {
+  --board: #1c2621;
+  --board-2: #24312a;
+  --board-line: #3a4b41;
+  --chalk: #eceae1;
+  --chalk-dim: #a3ada4;
+  --shu: #e5533c;
+  --kiiro: #f2d264;
+  --momo: #f29bb2;
+  --ao: #8ec5e6;
+  --f-display: 'Dela Gothic One', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  --f-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+  color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--board);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,.05), transparent 60%),
+    radial-gradient(ellipse at 90% 100%, rgba(255,255,255,.04), transparent 50%);
+  color: var(--chalk);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.75;
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--kiiro); outline-offset: 2px; }
+b { color: var(--kiiro); font-weight: 700; }
+
+/* ---------- タイトル ---------- */
+.hero { display: grid; gap: 6px; margin-bottom: 28px; }
+.hero-eyebrow { font-size: 13px; letter-spacing: .3em; color: var(--chalk-dim); }
+.hero h1 {
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: clamp(56px, 16vw, 112px);
+  line-height: 1;
+  margin: 0;
+  letter-spacing: .02em;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.35);
+}
+.hero h1 span { color: var(--shu); }
+.hero p { margin: 8px 0 0; max-width: 34em; color: var(--chalk-dim); }
+.rules {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  margin: 18px 0 0; padding: 0; list-style: none;
+  font-size: 14px; color: var(--chalk-dim);
+}
+.rules li::before { content: '・'; color: var(--kiiro); }
+.section-label { font-size: 13px; letter-spacing: .2em; color: var(--chalk-dim); margin: 28px 0 12px; }
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.mode {
+  display: grid; gap: 4px; text-align: left;
+  background: var(--board-2);
+  border: 1px solid var(--board-line);
+  border-radius: 4px;
+  padding: 16px 18px;
+  transition: transform .12s, border-color .12s;
+}
+.mode:hover { transform: translateY(-2px); border-color: var(--kiiro); }
+.mode-kind { font-size: 12px; letter-spacing: .15em; color: var(--chalk-dim); }
+.mode-name { font-family: var(--f-display); font-size: 22px; line-height: 1.3; }
+.mode-hint { font-size: 14px; color: var(--chalk); }
+.mode-goal { font-size: 12.5px; color: var(--kiiro); line-height: 1.6; margin-top: 4px; }
+.mode-seen { font-size: 12px; color: var(--chalk-dim); font-variant-numeric: tabular-nums; }
+.disclaimer { margin-top: 32px; font-size: 12.5px; color: var(--chalk-dim); border-top: 1px dashed var(--board-line); padding-top: 14px; }
+
+/* ---------- ゲーム ---------- */
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.topbar h2 { font-family: var(--f-display); font-weight: 400; font-size: 20px; margin: 0; min-width: 0; }
+.ghost { background: none; border: 1px solid var(--board-line); border-radius: 3px; padding: 4px 12px; font-size: 13px; color: var(--chalk-dim); }
+.ghost:hover { color: var(--chalk); border-color: var(--chalk-dim); }
+
+.goals { display: flex; flex-wrap: wrap; gap: 4px; margin: 14px 0 0; padding: 0; list-style: none; counter-reset: g; }
+.goals li {
+  font-size: 12.5px; padding: 2px 10px 2px 8px; border-radius: 2px;
+  color: var(--chalk-dim); border: 1px dashed var(--board-line);
+}
+.goals li + li::before { content: '→ '; color: var(--board-line); }
+.goals li.done { color: var(--chalk); border-style: solid; }
+.goals li.now { color: var(--board); background: var(--kiiro); border-color: var(--kiiro); font-weight: 700; }
+.goals li.now::before { color: var(--board); }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px 18px; align-items: end; margin-top: 16px; }
+.stat { min-width: 0; }
+.stat-head { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--chalk-dim); }
+.stat-head strong { color: var(--chalk); font-variant-numeric: tabular-nums; }
+.meter { height: 10px; background: var(--board-2); border: 1px solid var(--board-line); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+.meter i { display: block; height: 100%; transition: width .4s ease; }
+#hpBar { background: var(--ao); }
+#mnBar { background: var(--momo); }
+.meter i.low { background: var(--shu) !important; animation: pulse 1s infinite; }
+.mini { font-size: 12.5px; color: var(--chalk-dim); text-align: right; }
+.mini strong { display: block; color: var(--chalk); font-size: 18px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+#gfVal.on { color: var(--momo); }
+
+.timer { margin-top: 18px; display: flex; align-items: center; gap: 10px; }
+.timer-track { flex: 1; height: 6px; background: var(--board-2); border-radius: 3px; overflow: hidden; }
+#timerFill { display: block; height: 100%; width: 100%; background: var(--kiiro); }
+#timerNum { font-family: var(--f-display); font-size: 22px; width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.timer.hurry #timerFill { background: var(--shu); }
+.timer.hurry #timerNum { color: var(--shu); animation: pulse .5s infinite; }
+
+.scene { margin-top: 16px; padding: 20px 0 6px; border-top: 2px solid var(--chalk); }
+.scene.in { animation: chalkIn .35s ease-out; }
+.scene-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.scene h3 { font-family: var(--f-display); font-weight: 400; font-size: clamp(22px, 5vw, 28px); line-height: 1.35; margin: 0; text-wrap: balance; }
+.scene.love h3 { color: var(--momo); }
+.scene.love h3::before { content: '♡ '; }
+#sStep { font-size: 12px; color: var(--chalk-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#sText { margin-top: 10px; max-width: 40em; }
+#sText p { margin: 0 0 .7em; }
+.note { font-size: 13px; color: var(--chalk-dim); }
+
+.choices { display: grid; gap: 8px; margin-top: 14px; }
+.choice {
+  display: flex; gap: 12px; align-items: flex-start; text-align: left;
+  background: var(--board-2); border: 1px solid var(--board-line); border-radius: 3px;
+  padding: 12px 14px; line-height: 1.55;
+  transition: border-color .1s, background .1s;
+}
+.choice:hover { border-color: var(--chalk); background: #2b3a32; }
+.choice kbd {
+  flex: none; font-family: var(--f-display); font-size: 13px;
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border: 1px solid var(--chalk-dim); border-radius: 50%; color: var(--chalk-dim);
+}
+.choice span { min-width: 0; }
+.result { border-left: 3px solid var(--chalk-dim); padding: 4px 0 4px 14px; }
+.result.is-late { border-left-color: var(--shu); }
+.result p { margin: 0; }
+.late { color: var(--shu); }
+.deltas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.d { font-size: 12.5px; padding: 1px 8px; border-radius: 2px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.d.down { color: var(--shu); border: 1px solid var(--shu); }
+.d.up { color: var(--kiiro); border: 1px solid var(--kiiro); }
+.chaos { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--shu); border-radius: 3px; display: grid; gap: 6px; }
+.stamp {
+  display: inline-block; justify-self: start; font-family: var(--f-display);
+  color: var(--shu); border: 2px solid var(--shu); border-radius: 3px;
+  padding: 0 8px; font-size: 14px; transform: rotate(-4deg);
+}
+.stamp.big { font-size: 26px; padding: 2px 14px; margin: 6px 0 12px; border-width: 3px; }
+.stamp.ok { color: var(--kiiro); border-color: var(--kiiro); }
+.next {
+  justify-self: start; margin-top: 6px;
+  background: var(--chalk); color: var(--board); border: none; border-radius: 3px;
+  padding: 10px 28px; font-weight: 900; letter-spacing: .1em;
+}
+.next:hover { background: var(--kiiro); }
+
+/* ---------- エンディング ---------- */
+.end-kind { font-family: var(--f-display); font-size: 14px; letter-spacing: .3em; color: var(--chalk-dim); }
+.end-kind.over { color: var(--shu); }
+.end-kind.best { color: var(--kiiro); }
+#endTitle { font-family: var(--f-display); font-weight: 400; font-size: clamp(32px, 9vw, 56px); line-height: 1.2; margin: 6px 0 18px; text-wrap: balance; }
+#endText { max-width: 40em; }
+#endText p { margin: 0 0 1em; }
+#endText .gf { color: var(--momo); }
+#endText .gf.lost { color: var(--chalk-dim); }
+.end-stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 20px 0; padding: 14px 0; border-block: 1px dashed var(--board-line); }
+.end-stats dt { font-size: 12px; color: var(--chalk-dim); }
+.end-stats dd { margin: 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.end-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.end-actions .ghost { padding: 10px 20px; font-size: 15px; }
+
+.shake { animation: shake .35s; }
+@keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+@keyframes pulse { 50% { opacity: .55; } }
+@keyframes chalkIn { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+@media (max-width: 520px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .mini { text-align: left; }
+}
+</style>
+
+<div class="wrap">
+  <section id="title">
+    <header class="hero">
+      <span class="hero-eyebrow">耐えろ。そして、頂点へ。</span>
+      <h1>理<span>不</span>尽</h1>
+      <p>名門の寮で、猛烈営業の現場で。理不尽に耐えながら、1年生・新卒1年目から頂点を目指すマルチエンディングゲーム。</p>
+      <ul class="rules">
+        <li>選択肢は4つ、制限時間は5〜10秒</li>
+        <li>時間切れは理不尽な目に遭う</li>
+        <li>HPかメンタル、どちらかが0で終わり</li>
+        <li>キーボードの1〜4でも選べる</li>
+      </ul>
+    </header>
+    <p class="section-label">部隊を選べ</p>
+    <div class="mode-grid" id="modeGrid"></div>
+    <p class="disclaimer">本作はフィクションです。登場する学校・企業・人物・事件はすべて架空のものであり、実在の団体とは関係ありません。報道や体験談で語られてきた「理不尽」を誇張して描いた風刺ゲームです。</p>
+  </section>
+
+  <section id="game" hidden>
+    <div class="topbar">
+      <h2 id="gMode"></h2>
+      <button type="button" class="ghost" id="quit">やめる</button>
+    </div>
+    <ol class="goals" id="goals"></ol>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-head"><span>HP</span><strong id="hpVal">100</strong></div>
+        <div class="meter"><i id="hpBar"></i></div>
+      </div>
+      <div class="stat">
+        <div class="stat-head"><span>メンタル</span><strong id="mnVal">100</strong></div>
+        <div class="meter"><i id="mnBar"></i></div>
+      </div>
+      <div class="mini">評価<strong id="evVal">0</strong></div>
+      <div class="mini">彼女<strong id="gfVal">なし</strong></div>
+    </div>
+    <div class="timer" id="timer" hidden>
+      <div class="timer-track"><i id="timerFill"></i></div>
+      <span id="timerNum">0.0</span>
+    </div>
+    <article class="scene" id="scene">
+      <div class="scene-head"><h3 id="sTitle"></h3><span id="sStep"></span></div>
+      <div id="sText"></div>
+    </article>
+    <div class="choices" id="choices"></div>
+  </section>
+
+  <section id="end" hidden>
+    <span class="end-kind" id="endKind"></span>
+    <h2 id="endTitle"></h2>
+    <div id="endText"></div>
+    <dl class="end-stats" id="endStats"></dl>
+    <div class="end-actions">
+      <button type="button" class="next" id="retry">もう一度</button>
+      <button type="button" class="ghost" id="back">部隊を選び直す</button>
+    </div>
+  </section>
+</div>
+
+<script src="js/data-school.js"></script>
+<script src="js/data-company.js"></script>
+<script src="js/engine.js"></script>
