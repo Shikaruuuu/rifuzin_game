@@ -251,8 +251,14 @@
       girl: null, girlFreed: false, freedRooms: new Set(), anySee: false, objKey: '', gateMsgT: 0,
       hint: { left: false, cqc: false, seen: false }, cleared: false, flags: {}, seenItems: new Set(Object.keys(cfg.start.inv)),
     };
-    // プレイヤー（一人称なので体は描かない）
+    // プレイヤー（肩越し視点のときだけ体を描く）
+    const pm = MD.player();
+    const boxM = MD.cardboard();
+    boxM.visible = false;
+    pm.group.add(boxM);
+    dyn.add(pm.group);
     P = {
+      model: pm, boxM, camDist: 2.4, camOver: 0,
       x: TG.PLAYER_START.x, z: TG.PLAYER_START.z, a: Math.PI / 2, pitch: 0, eye: 1.45, bobT: 0, hp: 100, crouch: false, hidden: null, inBox: false,
       inv: Object.assign({ chalk: 0, ext: 0, gun: 0, stun: 0, box: 0, med: 0, tape: 0, key: 0 }, cfg.start.inv),
       equip: 'chalk', moving: false, running: false, actT: 0, noiseT: 0, regenT: 0, trail: [], stepT: 0, hurtT: 0,
@@ -1230,6 +1236,7 @@
       if (e.code === 'KeyC' || e.code === 'ControlLeft') pressed.crouch = true;
       if (e.code === 'KeyQ' || e.code === 'Tab') pressed.switchEq = true;
       if (e.code === 'Escape' || e.code === 'KeyP') pause(true);
+      if (e.code === 'KeyV') setView(viewMode === 'tps' ? 'fps' : 'tps');
       if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
     } else if (screen === 'pause' && (e.code === 'Escape' || e.code === 'KeyP')) pause(false);
   });
@@ -1642,7 +1649,17 @@
 
   function syncVisuals(dt, t) {
     setViewItem();
-    viewModel.visible = !P.hidden && !P.inBox && screen !== 'cine';
+    const tps = viewMode === 'tps';
+    viewModel.visible = !tps && !P.hidden && !P.inBox && screen !== 'cine';
+    // 肩越し視点の主人公
+    const pg = P.model.group;
+    pg.visible = tps && !P.hidden && P.camDist > 0.3;
+    pg.position.set(P.x, 0, P.z);
+    pg.rotation.y = P.a;
+    P.boxM.visible = P.inBox;
+    P.model.body.visible = !P.inBox;
+    MD.pose(P.model, P.crouch ? 'crouch' : 'stand', P.moving, dt, P.running ? 12 : P.crouch ? 6 : 8);
+    if (P.actT > 0 && !P.inBox) { P.model.aR.sh.rotation.x = -1.5; P.model.aR.el.rotation.x = -0.2; }
     const swing = P.actT > 0 ? Math.sin((P.actT / 0.5) * Math.PI) : 0;
     viewModel.position.set(Math.cos(P.bobT * 0.5) * 0.012, Math.abs(Math.sin(P.bobT * 0.5)) * 0.015 - (P.crouch ? 0.02 : 0), -swing * 0.25);
     // 敵
@@ -1672,6 +1689,7 @@
     // パトランプ
     worldRefs.policeLights.forEach((m, i) => { m.visible = (Math.floor(t * 4) + i) % 2 === 0; });
   }
+  const tpsLook = new THREE.Vector3();
   function updateCamera(dt) {
     const eye = P.hidden ? 1.45 : P.inBox ? 0.55 : P.crouch ? 0.95 : 1.5;
     P.eye += (eye - P.eye) * Math.min(1, dt * 10);
@@ -1682,15 +1700,73 @@
       z = P.hidden.z + 0.5 + Math.cos(P.hidden.face) * 0.36;
     }
     const bob = P.moving ? Math.sin(P.bobT) * (P.running ? 0.05 : 0.025) : 0;
-    camera.position.set(x, P.eye + bob, z);
+    if (viewMode === 'tps' && !P.hidden) {
+      // 肩越し：右肩の後ろ上から。壁にめり込むときはカメラを手前に寄せる
+      const fx = Math.sin(P.a), fz = Math.cos(P.a), rx = -Math.cos(P.a), rz = Math.sin(P.a);
+      const want = 2.5 * Math.cos(P.pitch * 0.7);
+      const tx = P.x + rx * 0.55 - fx * want, tz = P.z + rz * 0.55 - fz * want;
+      let free = camClip(P.x, P.z, tx, tz, false);
+      // ロッカーや棚が背後にあるときは、その上を越えてカメラを置く
+      let over = false;
+      if (free < 0.5) { const f2 = camClip(P.x, P.z, tx, tz, true); if (f2 > free) { free = f2; over = true; } }
+      P.camOver += ((over ? 1 : 0) - P.camOver) * Math.min(1, dt * 6);
+      const op = 1 - P.camOver * 0.7;
+      worldRefs.occluders.forEach((m) => { const tr = op < 0.99; if (m.transparent !== tr) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; } m.opacity = op; });
+      const d = free * Math.hypot(tx - P.x, tz - P.z);
+      P.camDist += (d - P.camDist) * Math.min(1, dt * (d < P.camDist ? 20 : 6));
+      const k = P.camDist / Math.max(0.01, Math.hypot(tx - P.x, tz - P.z));
+      // 背後が壁で寄りすぎるときは、上から見下ろすように持ち上げる
+      const lift = Math.max(0, 1.2 - P.camDist) * 0.9 + P.camOver * 0.7;
+      const cy = clamp(P.eye + 0.3 + lift - Math.sin(P.pitch) * 1.6, 0.35, 2.6);
+      camera.position.set(P.x + (tx - P.x) * k, cy + bob * 0.4, P.z + (tz - P.z) * k);
+      // 主人公の少し先（肩の延長線上）を見る。持ち上げたカメラでも主人公が画面に入る
+      const L = 4;
+      tpsLook.set(P.x + rx * 0.55 + fx * L, P.eye - 0.1 - lift * 1.2 + Math.sin(P.pitch) * L, P.z + rz * 0.55 + fz * L);
+    } else {
+      P.camDist = 0;
+      camera.position.set(x, P.eye + bob, z);
+    }
     if (shake > 0) {
       shake -= dt;
       camera.position.x += (Math.random() - 0.5) * shake * 0.3;
       camera.position.y += (Math.random() - 0.5) * shake * 0.3;
     }
+    if (viewMode === 'tps' && !P.hidden) {
+      camera.lookAt(tpsLook);
+      return;
+    }
     const cp = Math.cos(P.pitch);
     camera.lookAt(camera.position.x + Math.sin(P.a) * cp, camera.position.y + Math.sin(P.pitch), camera.position.z + Math.cos(P.a) * cp);
   }
+
+  // 主人公の頭からカメラ位置までの間に壁があれば、手前の割合（0〜1）を返す
+  const blocksCam = (x, z, wallsOnly) => (wallsOnly ? M.get(x, z) === M.T.WALL || M.get(x, z) === M.T.TREE : M.sight(x, z));
+  function camClip(x0, z0, x1, z1, wallsOnly) {
+    const d = Math.hypot(x1 - x0, z1 - z0);
+    const n = Math.max(1, Math.ceil(d / 0.08));
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+      // 壁ぎりぎりにならないよう、少し太めに判定する
+      if (blocksCam(Math.floor(x + 0.18), Math.floor(z), wallsOnly) || blocksCam(Math.floor(x - 0.18), Math.floor(z), wallsOnly) ||
+          blocksCam(Math.floor(x), Math.floor(z + 0.18), wallsOnly) || blocksCam(Math.floor(x), Math.floor(z - 0.18), wallsOnly)) {
+        return Math.max(0, (i - 1) / n);
+      }
+    }
+    return 1;
+  }
+
+  // 視点の切りかえ（肩越し／一人称）
+  let viewMode = 'tps';
+  try { if (localStorage.getItem('tg-view') === 'fps') viewMode = 'fps'; } catch (e) { /* 保存できなくても動く */ }
+  function setView(m) {
+    viewMode = m;
+    try { localStorage.setItem('tg-view', m); } catch (e) { /* 無視 */ }
+    $('btnView').textContent = m === 'tps' ? '一人称へ' : '肩越しへ';
+    document.body.classList.toggle('fps', m === 'fps');
+  }
+  $('btnView').addEventListener('click', () => { setView(viewMode === 'tps' ? 'fps' : 'tps'); AU.sfx.text(); });
+  setView(viewMode);
 
   // ===================== 画面遷移 =====================
   function show(id) {
@@ -1874,7 +1950,7 @@
       updateFx(dt);
     }
     document.body.classList.toggle('in-locker', !!(G && P.hidden && screen !== 'title'));
-    document.body.classList.toggle('in-box', !!(G && P.inBox && screen === 'play'));
+    document.body.classList.toggle('in-box', !!(G && P.inBox && screen === 'play' && viewMode === 'fps'));
     if (G) {
       syncVisuals(screen === 'play' || screen === 'cine' ? dt : 0, t);
       updateCamera(dt);

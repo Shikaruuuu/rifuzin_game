@@ -126,11 +126,12 @@
     add(instanced(new THREE.BoxGeometry(0.98, 0.82, 0.98), L(0x6e7a64), lists.tdesk || [], (o, c) => { o.position.set(c.x + 0.5, 0.41, c.z + 0.5); }));
     add(instanced(new THREE.BoxGeometry(1, 0.05, 1), L(0xbfa77a), lists.tdesk || [], (o, c) => { o.position.set(c.x + 0.5, 0.84, c.z + 0.5); }));
     // ロッカー
-    add(instanced(new THREE.BoxGeometry(0.86, 2.0, 0.92), L(0x7b90a6), lists.locker || [], (o, c) => { o.position.set(c.x + 0.52, 1.0, c.z + 0.5); }));
+    const lockerMat = L(0x7b90a6), shelfMat = L(0x8b6a42);
+    add(instanced(new THREE.BoxGeometry(0.86, 2.0, 0.92), lockerMat, lists.locker || [], (o, c) => { o.position.set(c.x + 0.52, 1.0, c.z + 0.5); }));
     add(instanced(new THREE.BoxGeometry(0.02, 0.06, 0.5), L(0x2c3440), lists.locker || [], (o, c) => { o.position.set(c.x + 0.08, 1.7, c.z + 0.5); }));
     add(instanced(new THREE.BoxGeometry(0.02, 0.06, 0.5), L(0x2c3440), lists.locker || [], (o, c) => { o.position.set(c.x + 0.08, 1.6, c.z + 0.5); }));
     // 棚
-    add(instanced(new THREE.BoxGeometry(0.96, 1.9, 0.96), L(0x8b6a42), lists.shelf || [], (o, c) => { o.position.set(c.x + 0.5, 0.95, c.z + 0.5); }));
+    add(instanced(new THREE.BoxGeometry(0.96, 1.9, 0.96), shelfMat, lists.shelf || [], (o, c) => { o.position.set(c.x + 0.5, 0.95, c.z + 0.5); }));
     // ピアノ
     add(instanced(new THREE.BoxGeometry(1, 1.0, 1), L(0x151515), lists.piano || [], (o, c) => { o.position.set(c.x + 0.5, 0.5, c.z + 0.5); }));
     // 跳び箱
@@ -247,7 +248,8 @@
     });
     add(instanced(new THREE.BoxGeometry(1.2, 0.05, 0.16), new THREE.MeshBasicMaterial({ color: 0xf6f8ff }), tubes, (o, c) => { o.position.set(c.x + 0.5, WALL_H - 0.03, c.z + 0.5); }));
 
-    return { backGate, policeLights: lights };
+    // 肩越しカメラがロッカーや棚を越えるとき、半透明にして主人公を見せる
+    return { backGate, policeLights: lights, occluders: [lockerMat, shelfMat] };
   }
 
   TG.world = { build };
