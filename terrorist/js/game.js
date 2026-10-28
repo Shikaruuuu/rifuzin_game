@@ -256,6 +256,16 @@
     const boxM = MD.cardboard();
     boxM.visible = false;
     pm.group.add(boxM);
+    pm.group.traverse((m) => {
+      if (!m.isMesh || m.geometry.type === 'CircleGeometry') return;
+      m.material = m.material.clone();
+      m.material.transparent = true;
+      m.material.opacity = 0.7;
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 28), new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.85, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.03;
+    pm.group.add(ring);
     dyn.add(pm.group);
     P = {
       model: pm, boxM, camDist: 2.4, camOver: 0,
@@ -1367,7 +1377,7 @@
   const hud = {
     life: $('lifeFill'), lifeNum: $('lifeNum'), loc: $('loc'), obj: $('obj'), phase: $('phase'), phaseT: $('phaseT'),
     equipName: $('equipName'), equipCount: $('equipCount'), keyItems: $('keyItems'), actLabel: $('btnALabel'), actHint: $('actHint'),
-    useLabel: $('btnBLabel'), crouchLabel: $('btnCLabel'), stance: $('stance'), equipHow: $('equipHow'),
+    useLabel: $('btnBLabel'), crouchLabel: $('btnCLabel'), stance: $('stance'), equipHow: $('equipHow'), useItem: $('btnBItem'),
   };
   let lastHud = {};
   function setText(el, k, v) { if (lastHud[k] !== v) { lastHud[k] = v; el.textContent = v; } }
@@ -1408,6 +1418,7 @@
     hud.actLabel.parentElement.classList.toggle('pulse', !!P.hidden && !G.hint.left);
     setText(hud.useLabel, 'use', eq ? (eq === 'chalk' ? '投げる' : eq === 'gun' ? '撃つ' : eq === 'ext' ? '噴射' : eq === 'box' ? (P.inBox ? '脱ぐ' : 'かぶる') : eq === 'med' ? '使う' : '使う') : '使う');
     setText(hud.crouchLabel, 'cr', P.crouch ? '立つ' : 'しゃがむ');
+    setText(hud.useItem, 'ui', eq ? ITEM_INFO[eq].name + (eq === 'box' || eq === 'ext' || eq === 'stun' ? '' : '×' + P.inv[eq]) : 'なし');
     setText(hud.stance, 'st', P.hidden ? 'ロッカーの中（隙間から外が見える）' : P.inBox ? 'ダンボールをかぶっている' : P.crouch ? 'しゃがみ中' : '');
     updateSusp();
   }
@@ -1456,10 +1467,10 @@
     } else {
       edge = rel > 0 ? -1 : 1;
       sx = edge < 0 ? 0 : W;
-      sy = H * 0.5;
+      sy = H * 0.36; // 画面端の矢印は右下のボタンより上に
     }
     sx = clamp(sx, 70, W - 70);
-    sy = clamp(sy, 120, H - 150);
+    sy = clamp(sy, 110, H * 0.6);
     wpEl.hidden = false;
     wpEl.style.transform = 'translate(' + sx + 'px,' + sy + 'px)';
     wpArrow.textContent = edge < 0 ? '◀' : edge > 0 ? '▶' : '▼';
@@ -1575,7 +1586,7 @@
     $('icName').textContent = got || info.name;
     $('icHow').textContent = keyText(info.how);
     $('icSwitch').hidden = !EQUIP_ORDER.includes(type);
-    $('icSwitch').textContent = isTouch ? '持ち物は［持ちかえ］ボタンか、下の装備欄をタップで切り替え' : '持ち物は Qキー か、下の装備欄をクリックで切り替え';
+    $('icSwitch').textContent = isTouch ? '持ち物は［持ちかえ］ボタンで切り替え。［使］ボタンに今持っている物が出る' : '持ち物は Qキー か、下の装備欄をクリックで切り替え';
     $('itemCard').hidden = false;
     cardT = 8;
   }
@@ -1703,8 +1714,8 @@
     if (viewMode === 'tps' && !P.hidden) {
       // 肩越し：右肩の後ろ上から。壁にめり込むときはカメラを手前に寄せる
       const fx = Math.sin(P.a), fz = Math.cos(P.a), rx = -Math.cos(P.a), rz = Math.sin(P.a);
-      const want = 2.5 * Math.cos(P.pitch * 0.7);
-      const tx = P.x + rx * 0.55 - fx * want, tz = P.z + rz * 0.55 - fz * want;
+      const want = 3.2 * Math.cos(P.pitch * 0.5);
+      const tx = P.x + rx * 0.45 - fx * want, tz = P.z + rz * 0.45 - fz * want;
       let free = camClip(P.x, P.z, tx, tz, false);
       // ロッカーや棚が背後にあるときは、その上を越えてカメラを置く
       let over = false;
@@ -1717,11 +1728,14 @@
       const k = P.camDist / Math.max(0.01, Math.hypot(tx - P.x, tz - P.z));
       // 背後が壁で寄りすぎるときは、上から見下ろすように持ち上げる
       const lift = Math.max(0, 1.2 - P.camDist) * 0.9 + P.camOver * 0.7;
-      const cy = clamp(P.eye + 0.3 + lift - Math.sin(P.pitch) * 1.6, 0.35, 2.6);
+      // 屋内は天井の少し下、屋外はもっと高くから見下ろす
+      const indoor = (P.x >= 4 && P.x <= 60 && P.z >= 3 && P.z <= 28) || (P.x >= 5 && P.x <= 15 && P.z >= 31 && P.z <= 40);
+      const top = indoor ? 2.62 : 3.6;
+      const cy = clamp(top - 0.15 - (P.crouch || P.inBox ? 0.25 : 0) + lift * 0.3 - Math.sin(P.pitch) * 1.4, 0.6, top);
       camera.position.set(P.x + (tx - P.x) * k, cy + bob * 0.4, P.z + (tz - P.z) * k);
       // 主人公の少し先（肩の延長線上）を見る。持ち上げたカメラでも主人公が画面に入る
-      const L = 4;
-      tpsLook.set(P.x + rx * 0.55 + fx * L, P.eye - 0.1 - lift * 1.2 + Math.sin(P.pitch) * L, P.z + rz * 0.55 + fz * L);
+      const L = 3.6;
+      tpsLook.set(P.x + rx * 0.45 + fx * L, 0.75 - lift * 0.6 + Math.sin(P.pitch) * L, P.z + rz * 0.45 + fz * L);
     } else {
       P.camDist = 0;
       camera.position.set(x, P.eye + bob, z);
@@ -1762,7 +1776,7 @@
   function setView(m) {
     viewMode = m;
     try { localStorage.setItem('tg-view', m); } catch (e) { /* 無視 */ }
-    $('btnView').textContent = m === 'tps' ? '一人称へ' : '肩越しへ';
+    $('btnView').textContent = m === 'tps' ? '視点：肩越し' : '視点：一人称';
     document.body.classList.toggle('fps', m === 'fps');
   }
   $('btnView').addEventListener('click', () => { setView(viewMode === 'tps' ? 'fps' : 'tps'); AU.sfx.text(); });
