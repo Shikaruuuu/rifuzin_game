@@ -200,7 +200,11 @@ window.TG = window.TG || {};
       name: '1人で脱出編',
       hint: '誰にも見つからずに学校を抜け出し、警察へ駆け込め。',
       goal: 'ゴール：裏門から脱出',
-      enemies: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'east', 'janitor', 'boss'],
+      enemies: {
+        easy: ['g2a', 'corr', 'entr', 'yard', 'janitor'],
+        normal: ['g2a', 'corr', 'g2b', 'gmus', 'entr', 'yard', 'gate', 'east', 'janitor'],
+        hard: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'east', 'janitor', 'boss'],
+      },
       items: [...commonItems, { type: 'key', ...C(48, 22) }],
       start: { inv: { chalk: 2 } },
       hostages: { '1a': 6, '2a': 7, '2b': 6, '3a': 6, music: 0 },
@@ -211,7 +215,11 @@ window.TG = window.TG || {};
       name: '好きな子を救え',
       hint: '音楽室に連れ去られた白石さんを助け出し、2人で学校を抜け出せ。',
       goal: 'ゴール：白石さんと裏門から脱出',
-      enemies: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'gmus2', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'east', 'janitor', 'boss'],
+      enemies: {
+        easy: ['g2a', 'corr', 'gmus', 'entr', 'yard', 'janitor'],
+        normal: ['g2a', 'corr', 'g2b', 'gmus', 'gmus2', 'entr', 'yard', 'gate', 'east', 'janitor'],
+        hard: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'gmus2', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'east', 'janitor', 'boss'],
+      },
       items: [...commonItems, { type: 'key', ...C(48, 22) }, { type: 'stun', ...C(10, 19) }],
       start: { inv: { chalk: 2 } },
       hostages: { '1a': 6, '2a': 6, '2b': 6, '3a': 6, music: 0 },
@@ -223,13 +231,23 @@ window.TG = window.TG || {};
       name: 'テロリストを倒せ',
       hint: '1人ずつ倒して武器を奪い、仲間を解放して、学校を取り戻せ。',
       goal: 'ゴール：テロリスト全員を鎮圧',
-      enemies: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'janitor', 'boss'],
+      enemies: {
+        easy: ['g2a', 'corr', 'gmus', 'entr', 'yard', 'boss'],
+        normal: ['g2a', 'corr', 'g1a', 'gmus', 'g3a', 'entr', 'yard', 'janitor', 'boss'],
+        hard: ['g2a', 'corr', 'g1a', 'g2b', 'gmus', 'g3a', 'entr', 'staff', 'yard', 'gate', 'back', 'janitor', 'boss'],
+      },
       items: [...commonItems, { type: 'tape', ...C(10, 25), n: 5 }],
       start: { inv: { chalk: 2, tape: 3 } },
       hostages: { '1a': 6, '2a': 7, '2b': 6, '3a': 6, music: 4 },
     },
   };
 
+  // 難易度：敵の人数（モードごと）に加えて、視界の広さと受けるダメージを変える
+  TG.DIFFS = {
+    easy: { name: 'かんたん', sight: 0.75, dmg: 0.5 },
+    normal: { name: 'ふつう', sight: 0.9, dmg: 0.75 },
+    hard: { name: 'むずかしい', sight: 1, dmg: 1 },
+  };
   TG.ENEMIES = ENEMIES;
   TG.hostageSpots = hostageSpots;
   TG.cellCenter = C;

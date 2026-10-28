@@ -221,13 +221,13 @@
   let P = null; // プレイヤー
   let screen = 'title';
 
-  function newGame(modeId) {
+  function newGame(modeId, diff) {
     scene.remove(dyn);
     dyn = new THREE.Group();
     scene.add(dyn);
     const cfg = TG.MODES[modeId];
     G = {
-      mode: modeId, cfg, time: 0, phase: 'sneak', alertT: 0, evaT: 0, lastKnown: null,
+      mode: modeId, cfg, diff, D: TG.DIFFS[diff], time: 0, phase: 'sneak', alertT: 0, evaT: 0, lastKnown: null,
       stats: { alerts: 0, downs: 0, ties: 0, freed: 0, damage: 0 },
       enemies: [], items: [], hostages: [], followers: [], fx: [], noises: [],
       girl: null, girlFreed: false, freedRooms: new Set(), anySee: false, objKey: '', gateMsgT: 0,
@@ -257,7 +257,7 @@
     enterLocker(L0, true);
 
     // 敵
-    cfg.enemies.forEach((id) => {
+    cfg.enemies[diff].forEach((id) => {
       const def = TG.ENEMIES[id];
       const route = def.route.map((r) => ({ x: r[0] + 0.5, z: r[1] + 0.5, wait: r[2] || 0, looks: r.slice(3) }));
       const model = MD.terrorist(!!def.boss);
@@ -344,7 +344,7 @@
     return mesh;
   }
   function enemyRange(e) {
-    return (e.boss ? SIGHT_RANGE + 1 : SIGHT_RANGE) * (G.phase === 'alert' ? 1.3 : 1);
+    return (e.boss ? SIGHT_RANGE + 1 : SIGHT_RANGE) * G.D.sight * (G.phase === 'alert' ? 1.3 : 1);
   }
   function enemyFov(e) { return G.phase === 'alert' || e.state === 'alert' ? ALERT_FOV : SIGHT_FOV; }
   function updateCone(e) {
@@ -555,6 +555,7 @@
 
   function damage(n) {
     if (G.cleared || screen !== 'play') return;
+    n *= G.D.dmg;
     P.hp -= n;
     G.stats.damage += n;
     P.regenT = 6;
@@ -1420,10 +1421,10 @@
   $('cine').addEventListener('pointerdown', (e) => { if (e.target.id === 'cineSkip') return; cineNext(); });
   $('cineSkip').addEventListener('click', () => { if (cine) { const d = cine.done; cine = null; d(); } });
 
-  function startMode(modeId, quick) {
+  function startMode(modeId, diff, quick) {
     AU.init();
     tryLandscape();
-    newGame(modeId);
+    newGame(modeId, diff);
     const begin = () => {
       screen = 'play';
       show('hud');
@@ -1472,14 +1473,14 @@
     screen = 'result';
     show('result');
     const [code, sub] = rankOf();
-    $('resMode').textContent = G.cfg.name + '　MISSION COMPLETE';
+    $('resMode').textContent = G.cfg.name + '（' + G.D.name + '）　MISSION COMPLETE';
     $('resRank').textContent = code;
     $('resRankSub').textContent = sub;
     const s = G.stats;
     const rows = [['クリアタイム', fmtTime(G.time)], ['見つかった回数', s.alerts + '回'], ['気絶させた数', s.downs + '人'], ['縛り上げた数', s.ties + '人'], ['受けたダメージ', s.damage]];
     if (G.mode === 'suppress') rows.push(['解放した仲間', s.freed + '人']);
     $('resStats').innerHTML = rows.map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('');
-    saveBest(G.mode, code, G.time, s.alerts);
+    saveBest(G.mode + '-' + G.diff, code, G.time, s.alerts);
   }
 
   // ===================== 記録 =====================
@@ -1501,12 +1502,32 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'mode';
-      const rec = best[m.id] ? '<span class="mode-best">CLEAR：' + best[m.id].rank + '／' + fmtTime(best[m.id].time) + '</span>' : '';
+      const cleared = Object.keys(TG.DIFFS).filter((d) => best[m.id + '-' + d]).map((d) => TG.DIFFS[d].name);
+      const rec = cleared.length ? '<span class="mode-best">クリア済み：' + cleared.join('・') + '</span>' : '';
       b.innerHTML = '<span class="mode-kind">' + m.kind + '</span><span class="mode-name">' + m.name + '</span><span class="mode-hint">' + m.hint + '</span><span class="mode-goal">' + m.goal + '</span>' + rec;
-      b.addEventListener('click', () => startMode(m.id));
+      b.addEventListener('click', () => pickDiff(m));
       grid.appendChild(b);
     });
   }
+  // ストーリーを選んだあとに難易度を選ぶ
+  function pickDiff(m) {
+    const best = loadBest();
+    $('diffStory').textContent = m.name;
+    const box = $('diffs');
+    box.innerHTML = '';
+    Object.entries(TG.DIFFS).forEach(([id, d]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'diff diff-' + id;
+      const rec = best[m.id + '-' + id];
+      b.innerHTML = '<span class="diff-name">' + d.name + '</span><span class="diff-count">テロリスト ' + m.enemies[id].length + '人</span>' +
+        (rec ? '<span class="diff-best">' + rec.rank + '／' + fmtTime(rec.time) + '</span>' : '');
+      b.addEventListener('click', () => { $('diffPick').hidden = true; startMode(m.id, id); });
+      box.appendChild(b);
+    });
+    $('diffPick').hidden = false;
+  }
+  $('diffBack').addEventListener('click', () => { $('diffPick').hidden = true; });
   function toTitle() {
     screen = 'title';
     AU.bgm('none');
@@ -1530,12 +1551,12 @@
   }
 
   $('resume').addEventListener('click', () => pause(false));
-  $('restart').addEventListener('click', () => { const m = G.mode; startMode(m, true); });
+  $('restart').addEventListener('click', () => { startMode(G.mode, G.diff, true); });
   $('quitBtn').addEventListener('click', toTitle);
   $('muteBtn').addEventListener('click', () => { AU.setMuted(!AU.isMuted()); $('muteBtn').textContent = AU.isMuted() ? '音：OFF' : '音：ON'; });
-  $('continueBtn').addEventListener('click', () => { const m = G.mode; startMode(m, true); });
+  $('continueBtn').addEventListener('click', () => { startMode(G.mode, G.diff, true); });
   $('overTitle').addEventListener('click', toTitle);
-  $('resRetry').addEventListener('click', () => { const m = G.mode; startMode(m); });
+  $('resRetry').addEventListener('click', () => { startMode(G.mode, G.diff); });
   $('resTitle').addEventListener('click', toTitle);
 
   // ===================== メインループ =====================

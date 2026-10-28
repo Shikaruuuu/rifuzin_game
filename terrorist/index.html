@@ -163,6 +163,16 @@ body.in-locker #lockerView { display: block; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .btn { padding: 10px 18px; border-radius: 4px; border: 1px solid var(--line); background: #1d2a23; font-weight: 700; min-width: 120px; }
 .btn.primary { background: var(--gold); color: #1a1406; border-color: var(--gold); }
+#diffs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.diff { display: grid; gap: 2px; justify-items: center; padding: 12px 6px; border-radius: 6px; border: 2px solid var(--line); background: #1d2a23; }
+.diff:hover, .diff:focus-visible { border-color: var(--gold); }
+.diff-name { font-family: var(--f-display); font-size: 18px; }
+.diff-easy .diff-name { color: var(--radar); }
+.diff-normal .diff-name { color: var(--gold); }
+.diff-hard .diff-name { color: var(--alert); }
+.diff-count { font-size: 12px; color: var(--dim); }
+.diff-best { font-size: 11px; color: var(--pink); }
+@media (max-width: 420px) { #diffs { grid-template-columns: 1fr; } }
 #over .card h2 { color: var(--alert); font-size: clamp(30px, 6vw, 46px); }
 #overLine { margin: 0; font-size: 16px; }
 #result .card { width: min(560px, 100%); }
@@ -265,6 +275,15 @@ body.in-locker #lockerView { display: block; }
     <span id="cineWho" hidden></span>
     <p id="cineText"></p>
     <div class="cine-foot"><span id="cineCount"></span><span>タップ／Enterで次へ　<button type="button" id="cineSkip">スキップ</button></span></div>
+  </div>
+</section>
+
+<section id="diffPick" class="overlay" hidden>
+  <div class="card">
+    <span class="res-mode" id="diffStory"></span>
+    <h2>難易度をえらぶ</h2>
+    <div id="diffs"></div>
+    <div class="btns"><button type="button" class="btn" id="diffBack">もどる</button></div>
   </div>
 </section>
 
