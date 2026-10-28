@@ -1252,34 +1252,53 @@
     return out;
   }
 
-  // タッチ操作：左半分どこでもスティック
-  const zone = $('stickZone'), base = $('stickBase'), knob = $('stickKnob');
-  const STICK_R = 52;
-  zone.addEventListener('pointerdown', (e) => {
+  // タッチ操作：十字キー（押した位置で8方向）と「走る」切りかえ
+  const dpad = $('dpad');
+  const dirEls = { up: dpad.querySelector('.up'), down: dpad.querySelector('.down'), left: dpad.querySelector('.left'), right: dpad.querySelector('.right') };
+  let runOn = false;
+  function dpadAt(e) {
+    const r = dpad.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy);
+    let x = 0, z = 0;
+    if (d > 14) {
+      // 斜めも取れるように、軸から約22度以内なら真っすぐ、それ以外は斜め
+      const ax = Math.abs(dx) / d, az = Math.abs(dy) / d;
+      if (ax > 0.38) x = Math.sign(dx);
+      if (az > 0.38) z = Math.sign(dy);
+    }
+    const m = Math.hypot(x, z) || 1;
+    const k = runOn ? 1 : 0.75;
+    stick.x = (x / m) * k; stick.z = (z / m) * k;
+    dirEls.up.classList.toggle('on', z < 0); dirEls.down.classList.toggle('on', z > 0);
+    dirEls.left.classList.toggle('on', x < 0); dirEls.right.classList.toggle('on', x > 0);
+  }
+  dpad.addEventListener('pointerdown', (e) => {
     if (stick.id !== null) return;
     e.preventDefault();
     stick.id = e.pointerId;
-    stick.ox = e.clientX; stick.oy = e.clientY;
-    zone.setPointerCapture(e.pointerId);
-    base.style.left = e.clientX + 'px'; base.style.top = e.clientY + 'px';
-    base.classList.add('on');
-    knob.style.transform = 'translate(-50%,-50%)';
+    try { dpad.setPointerCapture(e.pointerId); } catch (err) { /* 取れなくても動く */ }
+    dpadAt(e);
   });
-  zone.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== stick.id) return;
-    let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
-    const d = Math.hypot(dx, dy);
-    if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
-    stick.x = dx / STICK_R; stick.z = dy / STICK_R;
-    knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
-  });
-  const endStick = (e) => {
+  dpad.addEventListener('pointermove', (e) => { if (e.pointerId === stick.id) dpadAt(e); });
+  const endPad = (e) => {
     if (e.pointerId !== stick.id) return;
     stick.id = null; stick.x = stick.z = 0;
-    base.classList.remove('on');
+    Object.values(dirEls).forEach((el) => el.classList.remove('on'));
   };
-  zone.addEventListener('pointerup', endStick);
-  zone.addEventListener('pointercancel', endStick);
+  dpad.addEventListener('pointerup', endPad);
+  dpad.addEventListener('pointercancel', endPad);
+  const runBtn = $('btnRun');
+  runBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    runOn = !runOn;
+    runBtn.classList.toggle('on', runOn);
+    runBtn.setAttribute('aria-pressed', String(runOn));
+    runBtn.innerHTML = '走る<br>' + (runOn ? 'ON' : 'OFF');
+    if (stick.id !== null) { const m = Math.hypot(stick.x, stick.z) || 1; stick.x = (stick.x / m) * (runOn ? 1 : 0.75); stick.z = (stick.z / m) * (runOn ? 1 : 0.75); }
+    if (runOn) toast('走ると足音で気づかれやすくなる');
+  });
+
   // 視点操作：マウス（クリックでポインタロック）／画面右側のドラッグ
   const look = { yaw: 0, pitch: 0 };
   const MOUSE_SENS = 0.0024, TOUCH_SENS = 0.0058;
@@ -1310,10 +1329,11 @@
     if (lookT.id !== null) return;
     e.preventDefault();
     lookT.id = e.pointerId; lookT.x = e.clientX; lookT.y = e.clientY;
-    lookZone.setPointerCapture(e.pointerId);
+    try { lookZone.setPointerCapture(e.pointerId); } catch (err) { /* 取れなくても動く */ }
   });
   lookZone.addEventListener('pointermove', (e) => {
     if (e.pointerId !== lookT.id) return;
+    if (Math.abs(e.clientX - lookT.x) > 2) document.querySelector('.look-hint').hidden = true;
     look.yaw -= (e.clientX - lookT.x) * TOUCH_SENS;
     look.pitch -= (e.clientY - lookT.y) * TOUCH_SENS;
     lookT.x = e.clientX; lookT.y = e.clientY;
@@ -1378,6 +1398,7 @@
     setText(hud.actLabel, 'act', lbl);
     setText(hud.actHint, 'acth', c ? '［E］' + c.label : '');
     hud.actLabel.parentElement.classList.toggle('ready', !!c && !c.dim);
+    hud.actLabel.parentElement.classList.toggle('pulse', !!P.hidden && !G.hint.left);
     setText(hud.useLabel, 'use', eq ? (eq === 'chalk' ? '投げる' : eq === 'gun' ? '撃つ' : eq === 'ext' ? '噴射' : eq === 'box' ? (P.inBox ? '脱ぐ' : 'かぶる') : eq === 'med' ? '使う' : '使う') : '使う');
     setText(hud.crouchLabel, 'cr', P.crouch ? '立つ' : 'しゃがむ');
     setText(hud.stance, 'st', P.hidden ? 'ロッカーの中（隙間から外が見える）' : P.inBox ? 'ダンボールをかぶっている' : P.crouch ? 'しゃがみ中' : '');
@@ -1707,9 +1728,9 @@
       screen = 'play';
       show('hud');
       sayQueue([
-        ['', isTouch ? '掃除用具ロッカーの中。画面の右側をドラッグすると隙間から周りを見回せる' : 'ロッカーの中。マウスで隙間から周りを見回せる（画面をクリックすると視点が固定される）'],
-        ['', '見張りが人質の方を向いたら、' + (isTouch ? 'アクションボタン' : 'E キー') + 'で外へ。黄色いマーカーが目的地だ'],
-        ['', isTouch ? '左側をドラッグで移動。大きく倒すと走る（足音が出る）' : 'WASDで移動　Shiftで忍び足　Cでしゃがむ'],
+        ['', isTouch ? '掃除用具ロッカーの中。画面をドラッグすると隙間から周りを見回せる' : 'ロッカーの中。マウスで隙間から周りを見回せる（画面をクリックすると視点が固定される）'],
+        ['', '見張りが人質の方を向いたら、' + (isTouch ? '右下の光っている「ロッカーから出る」ボタン' : 'E キー') + 'で外へ。黄色いマーカーが目的地だ'],
+        ['', isTouch ? '左下の十字キーで移動。「走る」をONにすると速いが、足音で気づかれやすい' : 'WASDで移動　Shiftで忍び足　Cでしゃがむ'],
       ]);
     };
     // コンティニュー時はオープニングを飛ばす

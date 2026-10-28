@@ -71,7 +71,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .t-foot a { color: var(--radar); }
 
 /* ---------- HUD ---------- */
-#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.overlay, #cine { z-index: 8; }
 .tl, #keyItems, #actHint { text-shadow: 0 1px 2px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.6); }
 .tl { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: var(--safe-l); display: grid; gap: 4px; width: min(40vw, 320px); }
 .life { display: flex; align-items: center; gap: 8px; }
@@ -124,13 +125,22 @@ body:not(.touch) #sub { bottom: calc(var(--safe-b) + 84px); }
 /* タッチ操作 */
 .touch-ui { display: none; }
 body.touch .touch-ui { display: block; }
-#stickZone { position: absolute; left: 0; bottom: 0; width: 46%; height: 78%; pointer-events: auto; touch-action: none; }
-#lookZone { position: absolute; right: 0; bottom: 0; width: 54%; height: 82%; pointer-events: auto; touch-action: none; }
-.look-hint { position: absolute; right: calc(var(--safe-r) + 250px); bottom: calc(var(--safe-b) + 40px); font-size: 11px; color: rgba(236,234,225,.45); pointer-events: none; }
-#stickBase { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(143,224,176,.45); background: rgba(10,20,15,.3); opacity: 0; transition: opacity .1s; pointer-events: none; }
-#stickBase.on { opacity: 1; }
-#stickKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%; background: rgba(143,224,176,.55); transform: translate(-50%,-50%); }
-.stick-hint { position: absolute; left: calc(var(--safe-l) + 30px); bottom: calc(var(--safe-b) + 24px); width: 96px; height: 96px; border-radius: 50%; border: 2px dashed rgba(143,224,176,.28); display: grid; place-items: center; font-size: 11px; color: rgba(236,234,225,.5); pointer-events: none; }
+#lookZone { position: absolute; left: 0; right: 0; bottom: 0; height: 84%; pointer-events: auto; touch-action: none; z-index: 0; }
+.tr, .equip-wrap, #itemCard { z-index: 1; }
+.look-hint { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 14px); transform: translateX(-50%); background: rgba(0,0,0,.45); padding: 3px 12px; border-radius: 12px; font-size: 11px; color: rgba(236,234,225,.55); pointer-events: none; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+/* 十字キー：押した位置で8方向に歩く */
+#dpad { position: absolute; left: var(--safe-l); bottom: var(--safe-b); width: 156px; height: 156px; pointer-events: auto; touch-action: none; }
+#dpad i { position: absolute; display: grid; place-items: center; width: 52px; height: 52px; background: rgba(10,18,14,.62); border: 2px solid rgba(143,224,176,.5); color: var(--chalk); font-style: normal; font-size: 18px; }
+#dpad i.on { background: rgba(143,224,176,.5); }
+#dpad .up { left: 52px; top: 0; border-radius: 8px 8px 0 0; border-bottom: 0; }
+#dpad .down { left: 52px; bottom: 0; border-radius: 0 0 8px 8px; border-top: 0; }
+#dpad .left { left: 0; top: 52px; border-radius: 8px 0 0 8px; border-right: 0; }
+#dpad .right { right: 0; top: 52px; border-radius: 0 8px 8px 0; border-left: 0; }
+#dpad .mid { left: 52px; top: 52px; border: 0; background: rgba(10,18,14,.62); font-size: 10px; color: var(--dim); }
+#btnRun { position: absolute; left: calc(var(--safe-l) + 166px); bottom: calc(var(--safe-b) + 6px); width: 58px; height: 58px; border-radius: 50%; pointer-events: auto; touch-action: none; background: rgba(10,18,14,.62); border: 2px solid rgba(143,224,176,.5); font-size: 12px; font-weight: 700; line-height: 1.2; }
+#btnRun.on { background: rgba(242,210,100,.85); color: #1a1406; border-color: var(--gold); }
+#btnA.pulse { animation: pulseBtn 1s ease-in-out infinite; }
+@keyframes pulseBtn { 50% { box-shadow: 0 0 0 10px rgba(242,210,100,.35), 0 0 22px rgba(242,210,100,.8); transform: scale(1.06); } }
 .pad { position: absolute; right: var(--safe-r); bottom: var(--safe-b); width: 230px; height: 190px; pointer-events: none; }
 .pad button {
   position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; text-align: center;
@@ -157,20 +167,19 @@ body.touch .touch-ui { display: block; }
 #susp i.red { background: var(--alert); }
 
 /* ロッカーの中・ダンボールの中 */
-#lockerView, #boxView { position: fixed; inset: 0; pointer-events: none; display: none; }
+#lockerView, #boxView { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2; }
 body.in-locker #lockerView { display: block; }
 body.in-box #boxView { display: block; }
 #lockerView {
   --door: #3b4a5c;
   background:
-    repeating-linear-gradient(180deg, var(--door) 0 12px, transparent 12px 34px) center 50% / 50% 36% no-repeat,
-    linear-gradient(var(--door), var(--door)) top / 100% 32% no-repeat,
-    linear-gradient(var(--door), var(--door)) bottom / 100% 32% no-repeat,
-    linear-gradient(var(--door), var(--door)) left / 25% 100% no-repeat,
-    linear-gradient(var(--door), var(--door)) right / 25% 100% no-repeat;
-  box-shadow: inset 0 0 90px 30px rgba(0,0,0,.55);
+    repeating-linear-gradient(180deg, var(--door) 0 7px, transparent 7px 44px) center 50% / 76% 60% no-repeat,
+    linear-gradient(var(--door), var(--door)) top / 100% 20% no-repeat,
+    linear-gradient(var(--door), var(--door)) bottom / 100% 20% no-repeat,
+    linear-gradient(var(--door), var(--door)) left / 12% 100% no-repeat,
+    linear-gradient(var(--door), var(--door)) right / 12% 100% no-repeat;
+  box-shadow: inset 0 0 70px 20px rgba(0,0,0,.5);
 }
-#lockerView span { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); font-size: 13px; color: var(--dim); letter-spacing: .2em; }
 #boxView { box-shadow: inset 0 0 0 9vh #8a6538, inset 0 0 0 calc(9vh + 3px) #5a4020, inset 0 0 80px 40px rgba(60,40,15,.9); }
 #boxView::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 32%; background: #8a6538; }
 #boxView::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #8a6538; }
@@ -261,7 +270,7 @@ body.in-box #boxView { display: block; }
       <section>
         <h3>操作（スマホは横向き）</h3>
         <ul>
-          <li>スマホ：画面左をドラッグで移動（大きく倒すと走る）、画面右をドラッグで視点、右下のボタンでアクション／アイテム／しゃがむ</li>
+          <li>スマホ：左下の十字キーで移動（「走る」をONで走る）、画面をドラッグで向きを変える、右下のボタンでアクション／アイテム／しゃがむ</li>
           <li>PC：マウスで視点（画面クリックで固定、<kbd>Esc</kbd>で解除）　<kbd>WASD</kbd>移動　<kbd>←</kbd><kbd>→</kbd>旋回　<kbd>Shift</kbd>忍び足　<kbd>E</kbd>/<kbd>Space</kbd>アクション　<kbd>F</kbd>アイテム使用　<kbd>Q</kbd>持ちかえ　<kbd>C</kbd>しゃがむ　<kbd>Esc</kbd>ポーズ</li>
         </ul>
       </section>
@@ -304,9 +313,9 @@ body.in-box #boxView { display: block; }
   <div class="keys-help">マウス 視点（クリックで固定）　<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 忍び足<br><kbd>C</kbd> しゃがむ　<kbd>E</kbd> アクション　<kbd>F</kbd> アイテム　<kbd>Q</kbd> 持ちかえ</div>
   <div class="touch-ui">
     <div id="lookZone"></div>
-    <div class="look-hint">右側ドラッグで視点</div>
-    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
-    <div class="stick-hint">ここを<br>ドラッグ</div>
+    <div class="look-hint">画面をドラッグで向きを変える</div>
+    <div id="dpad" aria-label="移動"><i class="up">▲</i><i class="left">◀</i><i class="mid">移動</i><i class="right">▶</i><i class="down">▼</i></div>
+    <button type="button" id="btnRun" aria-pressed="false">走る<br>OFF</button>
     <div class="pad">
       <button type="button" id="btnA"><span id="btnALabel">アクション</span></button>
       <button type="button" id="btnB"><span><b>使</b><br><span id="btnBLabel">使う</span></span></button>
@@ -316,7 +325,7 @@ body.in-box #boxView { display: block; }
   </div>
 </section>
 
-<div id="lockerView"><span>ロッカーの隙間</span></div>
+<div id="lockerView"></div>
 <div id="boxView"></div>
 <div id="flash"></div>
 
