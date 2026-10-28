@@ -17,14 +17,18 @@
   const SIGHT_RANGE = 9, SIGHT_FOV = 50 * Math.PI / 180, ALERT_FOV = 68 * Math.PI / 180;
   const NAME = 'ユウト';
 
+  // how の［使］［アクション］は、PCではキー名に置き換えて表示する
   const ITEM_INFO = {
-    chalk: { name: 'チョーク', desc: '投げると音がする。敵の気をそらせる' },
-    ext: { name: '消火器', desc: '前方に噴射して敵をひるませ気絶させる' },
-    gun: { name: 'ゴム弾ピストル', desc: '奪った鎮圧用の銃。当たれば気絶' },
-    stun: { name: 'スタンガン', desc: '正面からでも一撃で気絶させられる' },
-    box: { name: 'ダンボール', desc: 'かぶって止まっていれば見つからない' },
-    med: { name: '救急箱', desc: 'LIFEを回復する' },
+    chalk: { name: 'チョーク', short: '投げて物音で気をそらす', how: '［使］で向いている方へ投げる。落ちた場所で音が鳴り、近くの敵が様子を見に行く。そのすきに通り抜けよう' },
+    ext: { name: '消火器', short: '正面の敵を噴射で気絶', how: '［使］で前に噴射。正面4m以内の敵をまとめて気絶させる（3回分）。大きな音が出るので注意' },
+    gun: { name: 'ゴム弾ピストル', short: '撃って気絶させる', how: '［使］で撃つ。画面中央の近くにいる敵に自動で狙いが合い、当たると気絶する。銃声で周りの敵が集まってくる' },
+    stun: { name: 'スタンガン', short: '［アクション］で正面から気絶', how: '持ちかえて構えている間は、敵の目の前で［アクション］を押すと正面からでも一撃で気絶させられる（5回分）' },
+    box: { name: 'ダンボール', short: 'かぶると見つかりにくい', how: '［使］でかぶる／脱ぐ。止まっている間は敵に見つからない。動くと近くの敵に怪しまれる' },
+    med: { name: '救急箱', short: 'LIFEを回復', how: '［使］でLIFEを50回復する' },
+    tape: { name: 'ガムテープ', how: '気絶して倒れている敵に近づいて［アクション］で縛る。縛った敵は二度と起き上がらない' },
+    key: { name: '裏門の鍵', how: '校庭の東にある裏門の前で［アクション］を押すと開く' },
   };
+  const keyText = (t) => isTouch ? t : t.replace(/［使］/g, 'Fキー').replace(/［アクション］/g, 'Eキー');
   const EQUIP_ORDER = ['chalk', 'ext', 'gun', 'stun', 'box', 'med'];
   const DROPS = {
     g2a: 'stun', corr: 'gun', g1a: 'tape', g2b: 'ammo', gmus: 'med', gmus2: 'ammo', g3a: 'tape',
@@ -112,7 +116,8 @@
   scene.add(dyn);
 
   function resize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    // 実際に表示されているキャンバスの大きさに合わせる
+    const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     // 一人称視点。縦長の画面では少し広めに
@@ -120,6 +125,8 @@
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => { setTimeout(resize, 120); setTimeout(resize, 500); });
   resize();
 
   // ===================== 当たり判定・視線・経路 =====================
@@ -242,7 +249,7 @@
       stats: { alerts: 0, downs: 0, ties: 0, freed: 0, damage: 0 },
       enemies: [], items: [], hostages: [], followers: [], fx: [], noises: [],
       girl: null, girlFreed: false, freedRooms: new Set(), anySee: false, objKey: '', gateMsgT: 0,
-      hint: { left: false, cqc: false, seen: false }, cleared: false, flags: {},
+      hint: { left: false, cqc: false, seen: false }, cleared: false, flags: {}, seenItems: new Set(Object.keys(cfg.start.inv)),
     };
     // プレイヤー（一人称なので体は描かない）
     P = {
@@ -1006,8 +1013,15 @@
       else if (it.type === 'tape') { P.inv.tape += it.n; msg = 'ガムテープ ×' + it.n; }
       else if (it.type === 'stun') { P.inv.stun += 5; msg = 'スタンガン（5回分）'; }
       else if (it.type === 'gun') { const first = !P.inv.gun; P.inv.gun += it.n; msg = first ? 'ゴム弾ピストル（' + it.n + '発）' : 'ゴム弾 ×' + it.n; }
-      toast('入手：' + msg);
-      if (!P.equip || !P.inv[P.equip]) { if (EQUIP_ORDER.includes(it.type)) P.equip = it.type; }
+      // 初めて手に入れた道具は、すぐ使えるように持ちかえて使い方を出す
+      const first = !G.seenItems.has(it.type);
+      G.seenItems.add(it.type);
+      if (EQUIP_ORDER.includes(it.type) && (first || !P.equip || !P.inv[P.equip])) {
+        if (P.equip === 'box' && it.type !== 'box') P.inBox = false;
+        P.equip = it.type;
+      }
+      if (first && ITEM_INFO[it.type]) showItemCard(it.type, msg);
+      else toast('入手：' + msg);
       updateHUD(true);
     }
   }
@@ -1326,7 +1340,7 @@
   const hud = {
     life: $('lifeFill'), lifeNum: $('lifeNum'), loc: $('loc'), obj: $('obj'), phase: $('phase'), phaseT: $('phaseT'),
     equipName: $('equipName'), equipCount: $('equipCount'), keyItems: $('keyItems'), actLabel: $('btnALabel'), actHint: $('actHint'),
-    useLabel: $('btnBLabel'), crouchLabel: $('btnCLabel'), stance: $('stance'),
+    useLabel: $('btnBLabel'), crouchLabel: $('btnCLabel'), stance: $('stance'), equipHow: $('equipHow'),
   };
   let lastHud = {};
   function setText(el, k, v) { if (lastHud[k] !== v) { lastHud[k] = v; el.textContent = v; } }
@@ -1351,6 +1365,7 @@
     // 装備
     const eq = P.equip && P.inv[P.equip] ? P.equip : null;
     setText(hud.equipName, 'eq', eq ? ITEM_INFO[eq].name : '素手');
+    setText(hud.equipHow, 'eqh', eq ? (isTouch ? '' : 'F: ') + ITEM_INFO[eq].short : 'アイテムを拾うとここに出る');
     setText(hud.equipCount, 'eqc', eq ? (eq === 'box' ? (P.inBox ? 'かぶっている' : '') : eq === 'ext' ? '残' + P.inv.ext + '回' : eq === 'stun' ? '残' + P.inv.stun + '回' : '×' + P.inv[eq]) : '');
     const ki = [];
     if (P.inv.key) ki.push('裏門の鍵');
@@ -1525,6 +1540,18 @@
     el.classList.add('on');
     toastT = 2.6;
   }
+  // 初めて拾った道具の使い方カード
+  let cardT = 0;
+  function showItemCard(type, got) {
+    const info = ITEM_INFO[type];
+    $('icName').textContent = got || info.name;
+    $('icHow').textContent = keyText(info.how);
+    $('icSwitch').hidden = !EQUIP_ORDER.includes(type);
+    $('icSwitch').textContent = isTouch ? '持ち物は［持ちかえ］ボタンか、下の装備欄をタップで切り替え' : '持ち物は Qキー か、下の装備欄をクリックで切り替え';
+    $('itemCard').hidden = false;
+    cardT = 8;
+  }
+  $('itemCard').addEventListener('pointerdown', (e) => { e.stopPropagation(); $('itemCard').hidden = true; cardT = 0; });
   let subQueue = [], subT = 0;
   function say(who, text) {
     subQueue = [[who, text]];
@@ -1544,6 +1571,7 @@
   }
   function updateMessages(dt) {
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+    if (cardT > 0) { cardT -= dt; if (cardT <= 0) $('itemCard').hidden = true; }
     if (subT > 0) { subT -= dt; if (subT <= 0) { subQueue.shift(); showSub(); } }
   }
   function flash(kind) {
@@ -1571,8 +1599,9 @@
     });
     return obj;
   }
-  viewModel.add(onTop(MD.box(0.08, 0.08, 0.5, 0x1a1d29, 0.3, -0.32, -0.5)));
-  viewModel.add(onTop(MD.box(0.07, 0.07, 0.09, 0xf1c7a0, 0.3, -0.3, -0.78)));
+  const fpArm = onTop(MD.fpArm());
+  fpArm.position.set(0.3, -0.31, -0.45);
+  viewModel.add(fpArm);
   vmItem.position.set(0.3, -0.27, -0.85);
   viewModel.add(vmItem);
   let vmType = null;

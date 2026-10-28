@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>学校にテロリスト</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap">
@@ -24,8 +25,8 @@
   --pink: #ff8fb6;
   --f-display: 'Dela Gothic One', 'Hiragino Sans', 'Yu Gothic', sans-serif;
   --f-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
-  --safe-l: max(12px, env(safe-area-inset-left, 0px));
-  --safe-r: max(12px, env(safe-area-inset-right, 0px));
+  --safe-l: max(16px, env(safe-area-inset-left, 0px));
+  --safe-r: max(16px, env(safe-area-inset-right, 0px));
   --safe-b: max(10px, env(safe-area-inset-bottom, 0px));
   color-scheme: dark;
 }
@@ -99,6 +100,14 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 #equip { pointer-events: auto; min-width: 150px; display: grid; justify-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 4px 14px; }
 #equipName { font-family: var(--f-display); font-size: 15px; }
 #equipCount { font-size: 12px; color: var(--gold); min-height: 1em; }
+#equipHow { font-size: 11px; color: var(--dim); }
+#itemCard { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); width: min(440px, 64vw); display: grid; gap: 4px; pointer-events: auto; background: rgba(8,14,11,.92); border: 1px solid var(--gold); border-radius: 6px; padding: 10px 16px 8px; box-shadow: 0 6px 30px rgba(0,0,0,.5); animation: cardIn .25s ease-out; }
+@keyframes cardIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
+.ic-eyebrow { font-size: 11px; letter-spacing: .25em; color: var(--radar); }
+#icName { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--gold); }
+#icHow { margin: 0; font-size: 14px; line-height: 1.6; }
+#icSwitch { font-size: 12px; color: var(--dim); }
+.ic-close { font-size: 11px; color: var(--dim); justify-self: end; }
 #keyItems { font-size: 12px; color: var(--dim); }
 #actHint { font-size: 12px; color: var(--gold); min-height: 1em; }
 body.touch #actHint { display: none; }
@@ -152,13 +161,14 @@ body.touch .touch-ui { display: block; }
 body.in-locker #lockerView { display: block; }
 body.in-box #boxView { display: block; }
 #lockerView {
+  --door: #3b4a5c;
   background:
-    repeating-linear-gradient(180deg, #11161b 0 12px, transparent 12px 34px) center 50% / 50% 36% no-repeat,
-    linear-gradient(#11161b, #11161b) top / 100% 32% no-repeat,
-    linear-gradient(#11161b, #11161b) bottom / 100% 32% no-repeat,
-    linear-gradient(#11161b, #11161b) left / 25% 100% no-repeat,
-    linear-gradient(#11161b, #11161b) right / 25% 100% no-repeat;
-  box-shadow: inset 0 0 120px 40px rgba(0,0,0,.9);
+    repeating-linear-gradient(180deg, var(--door) 0 12px, transparent 12px 34px) center 50% / 50% 36% no-repeat,
+    linear-gradient(var(--door), var(--door)) top / 100% 32% no-repeat,
+    linear-gradient(var(--door), var(--door)) bottom / 100% 32% no-repeat,
+    linear-gradient(var(--door), var(--door)) left / 25% 100% no-repeat,
+    linear-gradient(var(--door), var(--door)) right / 25% 100% no-repeat;
+  box-shadow: inset 0 0 90px 30px rgba(0,0,0,.55);
 }
 #lockerView span { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); font-size: 13px; color: var(--dim); letter-spacing: .2em; }
 #boxView { box-shadow: inset 0 0 0 9vh #8a6538, inset 0 0 0 calc(9vh + 3px) #5a4020, inset 0 0 80px 40px rgba(60,40,15,.9); }
@@ -174,9 +184,7 @@ body.in-box #boxView { display: block; }
 
 /* ---------- 会話シーン ---------- */
 #cine { position: fixed; inset: 0; display: grid; grid-template-rows: 1fr auto; cursor: pointer; }
-#cine::before, #cine::after { content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
-#cine::before { top: 0; } #cine::after { bottom: 0; }
-.cine-box { position: relative; z-index: 1; margin: 0 auto calc(9vh + 10px); width: min(760px, calc(100% - 32px)); background: rgba(4,7,6,.86); border: 1px solid var(--line); border-radius: 4px; padding: 14px 18px 12px; }
+.cine-box { position: relative; z-index: 1; margin: 0 auto calc(var(--safe-b) + 12px); width: min(760px, calc(100% - 32px)); background: rgba(4,7,6,.86); border: 1px solid var(--line); border-radius: 4px; padding: 14px 18px 12px; }
 #cineWho { display: inline-block; font-size: 13px; color: var(--pink); margin-bottom: 4px; font-weight: 700; }
 #cineText { margin: 0; font-size: clamp(15px, 2.4vw, 19px); line-height: 1.75; min-height: 3.4em; }
 .cine-foot { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--dim); margin-top: 4px; }
@@ -280,10 +288,17 @@ body.in-box #boxView { display: block; }
   <div id="susp"></div>
   <div id="wp" hidden><span id="wpArrow">▼</span><span id="wpLabel"></span></div>
   <div id="toast"></div>
+  <div id="itemCard" hidden role="dialog" aria-label="アイテムの使い方">
+    <span class="ic-eyebrow">入手したアイテム</span>
+    <strong id="icName"></strong>
+    <p id="icHow"></p>
+    <span id="icSwitch"></span>
+    <span class="ic-close">タップで閉じる</span>
+  </div>
   <div id="sub"><span class="who"></span><span class="txt"></span></div>
   <div class="equip-wrap">
     <span id="actHint"></span>
-    <button type="button" id="equip" aria-label="アイテム持ちかえ"><span id="equipName">素手</span><span id="equipCount"></span></button>
+    <button type="button" id="equip" aria-label="アイテム持ちかえ"><span id="equipName">素手</span><span id="equipCount"></span><span id="equipHow"></span></button>
     <span id="keyItems"></span>
   </div>
   <div class="keys-help">マウス 視点（クリックで固定）　<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 忍び足<br><kbd>C</kbd> しゃがむ　<kbd>E</kbd> アクション　<kbd>F</kbd> アイテム　<kbd>Q</kbd> 持ちかえ</div>
@@ -354,6 +369,7 @@ body.in-box #boxView { display: block; }
 <script src="vendor/three.min.js"></script>
 <script src="js/map.js"></script>
 <script src="js/models.js"></script>
+<script src="js/characters.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/world.js"></script>
 <script src="js/game.js"></script>
