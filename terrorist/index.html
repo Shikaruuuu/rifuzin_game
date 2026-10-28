@@ -71,97 +71,55 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .t-foot a { color: var(--radar); }
 
 /* ---------- HUD ---------- */
+/* 文字の説明は出さない。体力・目的・レーダー・ボタンだけ */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 .overlay, #cine { z-index: 8; }
-.tl, #keyItems, #actHint { text-shadow: 0 1px 2px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.6); }
-.tl { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: var(--safe-l); display: grid; gap: 4px; width: min(32vw, 300px); }
-.life { display: flex; align-items: center; gap: 8px; }
-.life-label { font-family: var(--f-display); font-size: 12px; letter-spacing: .12em; color: var(--radar); }
-.life-bar { flex: 1; height: 10px; background: rgba(0,0,0,.6); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+.tl { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: var(--safe-l); display: grid; gap: 6px; width: min(30vw, 260px); text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.life-bar { display: block; height: 8px; background: rgba(0,0,0,.55); border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.18); }
 #lifeFill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #4fd07e, #8fe0b0); transition: width .2s; }
 #lifeFill.low { background: linear-gradient(90deg, #ff3b30, #ff7a5a); }
-#lifeNum { font-size: 12px; min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; }
-#loc { font-size: 12px; color: var(--dim); letter-spacing: .1em; }
-#obj { font-size: 13px; line-height: 1.45; background: var(--panel); border-left: 3px solid var(--gold); padding: 5px 8px; border-radius: 2px; }
-#stance { font-size: 12px; color: var(--gold); min-height: 1em; }
-.tr { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: var(--safe-r); display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 6px; }
-#radar { width: clamp(90px, min(17vw, 36vh), 170px); height: clamp(90px, min(17vw, 36vh), 170px); border: 2px solid var(--line); border-radius: 6px; background: #06130d; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
-.tr-row { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: auto; }
-.icon-btn.view-btn { width: auto; padding: 0 8px; font-size: 11px; font-weight: 700; }
-.icon-btn { width: 40px; height: 34px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
-.phase { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); text-align: center; font-family: var(--f-display); line-height: 1; }
-.phase b { display: block; font-weight: 400; font-size: clamp(20px, 3.4vw, 32px); letter-spacing: .12em; }
-.phase span { font-size: 14px; font-variant-numeric: tabular-nums; font-family: var(--f-body); font-weight: 700; }
+#obj { justify-self: start; font-size: 13px; font-weight: 700; background: rgba(0,0,0,.45); border-left: 3px solid var(--gold); padding: 3px 10px; border-radius: 2px; }
+.tr { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: var(--safe-r); display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 6px; z-index: 1; }
+#radar { width: clamp(84px, min(15vw, 32vh), 150px); height: clamp(84px, min(15vw, 32vh), 150px); border: 2px solid var(--line); border-radius: 50%; background: #06130d; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.icon-btn { pointer-events: auto; width: 40px; height: 34px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
+/* 見つかったら画面の縁が赤く、逃げ切るまでの秒数だけ出す */
+.phase { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-family: var(--f-display); font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
 .phase.sneak { display: none; }
-.phase.alert b, .phase.alert span { color: var(--alert); text-shadow: 0 0 12px rgba(255,59,48,.6); }
-.phase.alert b { animation: blink .5s steps(2) infinite; }
-.phase.evasion b, .phase.evasion span { color: var(--evasion); }
+.phase.alert { color: var(--alert); text-shadow: 0 0 10px rgba(255,59,48,.7); }
+.phase.evasion { color: var(--evasion); }
+.phase b { display: none; }
+#hud::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s; box-shadow: inset 0 0 60px 18px var(--alert); }
+body[data-phase="alert"] #hud::before { opacity: .7; animation: blink 1s ease-in-out infinite; }
+body[data-phase="evasion"] #hud::before { opacity: .45; box-shadow: inset 0 0 50px 14px var(--evasion); }
 @keyframes blink { 50% { opacity: .35; } }
-
-.equip-wrap { position: absolute; bottom: var(--safe-b); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; }
-/* スマホでは装備欄を出さず、［使］ボタンに持っている物を表示する */
-body.touch .equip-wrap { display: none; }
-#btnBItem { display: block; font-size: 10.5px; font-weight: 700; color: var(--gold); line-height: 1.2; max-width: 66px; }
-#btnB b { font-family: var(--f-body); font-weight: 700; font-size: 13px; }
-#equip { pointer-events: auto; min-width: 150px; display: grid; justify-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 4px 14px; }
-#equipName { font-family: var(--f-display); font-size: 15px; }
-#equipCount { font-size: 12px; color: var(--gold); min-height: 1em; }
-#equipHow { font-size: 11px; color: var(--dim); }
-#itemCard { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); width: min(440px, 64vw); display: grid; gap: 4px; pointer-events: auto; background: rgba(8,14,11,.92); border: 1px solid var(--gold); border-radius: 6px; padding: 10px 16px 8px; box-shadow: 0 6px 30px rgba(0,0,0,.5); animation: cardIn .25s ease-out; }
-@keyframes cardIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
-.ic-eyebrow { font-size: 11px; letter-spacing: .25em; color: var(--radar); }
-#icName { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--gold); }
-#icHow { margin: 0; font-size: 14px; line-height: 1.6; }
-#icSwitch { font-size: 12px; color: var(--dim); }
-.ic-close { font-size: 11px; color: var(--dim); justify-self: end; }
-#keyItems { font-size: 12px; color: var(--dim); }
-#actHint { font-size: 12px; color: var(--gold); min-height: 1em; }
-body.touch #actHint { display: none; }
-.keys-help { position: absolute; left: var(--safe-l); bottom: var(--safe-b); font-size: 11.5px; color: var(--dim); line-height: 1.7; background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 4px; }
+.keys-help { position: absolute; left: var(--safe-l); bottom: var(--safe-b); font-size: 11.5px; color: var(--dim); background: rgba(0,0,0,.35); padding: 5px 10px; border-radius: 4px; }
 body.touch .keys-help { display: none; }
 
-#toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -6px); background: var(--panel); border: 1px solid var(--line); padding: 6px 14px; border-radius: 3px; font-size: 14px; opacity: 0; transition: opacity .2s, transform .2s; white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
-#toast.on { opacity: 1; transform: translate(-50%, 0); }
-#sub { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 58px); transform: translateX(-50%); width: min(460px, 34vw); background: rgba(5,8,7,.7); border-radius: 4px; padding: 4px 10px; font-size: 12.5px; line-height: 1.5; opacity: 0; transition: opacity .2s; }
-#sub.on { opacity: 1; }
-#sub .who { display: block; font-size: 12px; color: var(--pink); }
-
-/* タッチ操作 */
+/* タッチ操作：左にスティック、右に3つのボタン */
 .touch-ui { display: none; }
 body.touch .touch-ui { display: block; }
-#lookZone { position: absolute; left: 0; right: 0; bottom: 0; height: 84%; pointer-events: auto; touch-action: none; z-index: 0; }
-.tr, .equip-wrap, #itemCard { z-index: 1; }
-.look-hint { position: absolute; left: 50%; bottom: calc(var(--safe-b) + 10px); transform: translateX(-50%); background: rgba(0,0,0,.45); padding: 3px 12px; border-radius: 12px; font-size: 11px; color: rgba(236,234,225,.55); pointer-events: none; white-space: nowrap; text-shadow: 0 1px 2px #000; }
-/* 十字キー：押した位置で8方向に歩く */
-#dpad { position: absolute; left: var(--safe-l); bottom: var(--safe-b); width: 156px; height: 156px; pointer-events: auto; touch-action: none; }
-#dpad i { position: absolute; display: grid; place-items: center; width: 52px; height: 52px; background: rgba(10,18,14,.42); border: 2px solid rgba(143,224,176,.5); color: var(--chalk); font-style: normal; font-size: 18px; }
-#dpad i.on { background: rgba(143,224,176,.5); }
-#dpad .up { left: 52px; top: 0; border-radius: 8px 8px 0 0; border-bottom: 0; }
-#dpad .down { left: 52px; bottom: 0; border-radius: 0 0 8px 8px; border-top: 0; }
-#dpad .left { left: 0; top: 52px; border-radius: 8px 0 0 8px; border-right: 0; }
-#dpad .right { right: 0; top: 52px; border-radius: 0 8px 8px 0; border-left: 0; }
-#dpad .mid { left: 52px; top: 52px; border: 0; background: rgba(10,18,14,.42); font-size: 10px; color: var(--dim); }
-#btnRun { position: absolute; left: calc(var(--safe-l) + 166px); bottom: calc(var(--safe-b) + 6px); width: 58px; height: 58px; border-radius: 50%; pointer-events: auto; touch-action: none; background: rgba(10,18,14,.62); border: 2px solid rgba(143,224,176,.5); font-size: 12px; font-weight: 700; line-height: 1.2; }
-#btnRun.on { background: rgba(242,210,100,.85); color: #1a1406; border-color: var(--gold); }
-#btnA.pulse { animation: pulseBtn 1s ease-in-out infinite; }
-@keyframes pulseBtn { 50% { box-shadow: 0 0 0 10px rgba(242,210,100,.35), 0 0 22px rgba(242,210,100,.8); transform: scale(1.06); } }
-.pad { position: absolute; right: var(--safe-r); bottom: var(--safe-b); width: 230px; height: 190px; pointer-events: none; }
+#lookZone { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; pointer-events: auto; touch-action: none; z-index: 0; }
+#stickZone { position: absolute; left: 0; bottom: 0; width: 42%; height: 80%; pointer-events: auto; touch-action: none; }
+#stickBase { position: absolute; left: calc(var(--safe-l) + 18px); bottom: calc(var(--safe-b) + 14px); width: 124px; height: 124px; border-radius: 50%; background: radial-gradient(circle, rgba(10,18,14,.18), rgba(10,18,14,.45)); border: 2px solid rgba(236,234,225,.35); pointer-events: none; }
+#stickBase.on { border-color: rgba(236,234,225,.6); }
+#stickKnob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 50%; background: rgba(236,234,225,.55); box-shadow: 0 2px 8px rgba(0,0,0,.4); transform: translate(-50%, -50%); }
+.pad { position: absolute; right: var(--safe-r); bottom: var(--safe-b); width: 200px; height: 170px; pointer-events: none; }
 .pad button {
   position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; text-align: center;
-  background: rgba(10,18,14,.62); border: 2px solid rgba(143,224,176,.5); font-weight: 700; line-height: 1.15; padding: 4px;
+  background: rgba(10,18,14,.5); border: 2px solid rgba(236,234,225,.4); font-weight: 700; line-height: 1.15; padding: 4px;
 }
-.pad button.down { background: rgba(143,224,176,.45); }
-.pad button span { font-size: 11px; display: block; }
-#btnA { width: 88px; height: 88px; right: 0; bottom: 18px; }
-#btnA.ready { border-color: var(--gold); box-shadow: 0 0 14px rgba(242,210,100,.45); }
-#btnA span { font-size: 11.5px; max-width: 76px; }
-#btnB { width: 74px; height: 74px; right: 98px; bottom: 0; }
-#btnC { width: 64px; height: 64px; right: 102px; bottom: 90px; }
-#btnX { width: 54px; height: 54px; right: 16px; bottom: 120px; }
-.pad b { font-family: var(--f-display); font-weight: 400; font-size: 17px; }
+.pad button.down { background: rgba(236,234,225,.4); }
+.pad button span { font-size: 13px; display: block; }
+#btnA { width: 92px; height: 92px; right: 0; bottom: 10px; border-color: rgba(255,120,90,.75); }
+#btnA span { font-size: 16px; }
+#btnA.pulse { animation: pulseBtn 1s ease-in-out infinite; border-color: var(--gold); }
+@keyframes pulseBtn { 50% { box-shadow: 0 0 0 10px rgba(242,210,100,.35), 0 0 22px rgba(242,210,100,.8); transform: scale(1.06); } }
+#btnC { width: 66px; height: 66px; right: 102px; bottom: 0; }
+#btnC.on { background: rgba(143,224,176,.45); border-color: var(--radar); }
+#btnRun { width: 60px; height: 60px; right: 8px; bottom: 112px; font-size: 12px; }
+#btnRun.on { background: rgba(242,210,100,.85); color: #1a1406; border-color: var(--gold); }
 
-/* 一人称の照準・目的地・気配 */
-#crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(236,234,225,.85); box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+/* 目的地・気配 */
 #wp { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 2px; margin: -18px 0 0 -60px; width: 120px; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
 #wpArrow { color: var(--gold); font-size: 20px; line-height: 1; animation: bob 1s ease-in-out infinite; }
 #wpLabel { font-size: 12px; font-weight: 700; color: var(--gold); background: rgba(0,0,0,.55); padding: 1px 8px; border-radius: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -171,9 +129,8 @@ body.touch .touch-ui { display: block; }
 #susp i.red { background: var(--alert); }
 
 /* ロッカーの中・ダンボールの中 */
-#lockerView, #boxView { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2; }
+#lockerView { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2; }
 body.in-locker #lockerView { display: block; }
-body.in-box #boxView { display: block; }
 #lockerView {
   --door: #3b4a5c;
   background:
@@ -184,10 +141,6 @@ body.in-box #boxView { display: block; }
     linear-gradient(var(--door), var(--door)) right / 12% 100% no-repeat;
   box-shadow: inset 0 0 70px 20px rgba(0,0,0,.5);
 }
-#boxView { box-shadow: inset 0 0 0 9vh #8a6538, inset 0 0 0 calc(9vh + 3px) #5a4020, inset 0 0 80px 40px rgba(60,40,15,.9); }
-#boxView::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 32%; background: #8a6538; }
-#boxView::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #8a6538; }
-
 /* ---------- 演出 ---------- */
 #flash { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
 #flash.hurt { background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,.55)); animation: fl .45s ease-out; }
@@ -232,29 +185,20 @@ body.in-box #boxView { display: block; }
 
 /* 狭い横画面（スマホ横向き） */
 @media (max-height: 480px) {
-  .tl { width: min(30vw, 260px); }
-  #obj { font-size: 12px; padding: 4px 7px; }
-  #equip { min-width: 120px; padding: 2px 10px; }
-  #equipName { font-size: 13px; }
   .t-logo { font-size: clamp(34px, 7vw, 60px); }
   .t-sub { font-size: 12.5px; }
   .howto { font-size: 12px; }
   .mode { padding: 10px 12px; }
   .mode-name { font-size: 18px; }
   .mode-hint { font-size: 12.5px; }
-  .pad { transform: scale(.9); transform-origin: right bottom; }
 }
-/* さらに背の低い画面（アプリ内表示の横向きなど） */
 @media (max-height: 360px) {
-  .pad { transform: scale(.74); }
-  #dpad { transform: scale(.78); transform-origin: left bottom; }
-  #btnRun { left: calc(var(--safe-l) + 130px); width: 48px; height: 48px; font-size: 11px; }
-  .tl { gap: 2px; }
-  #loc, #stance { font-size: 11px; }
-  #equipHow, #keyItems { display: none; }
+  .pad { transform: scale(.82); transform-origin: right bottom; }
+  #stickBase { transform: scale(.85); transform-origin: left bottom; }
+  #obj { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .phase.alert b, .rot-icon { animation: none; }
+  #btnA.pulse, .rot-icon, body[data-phase="alert"] #hud::before { animation: none; }
 }
 </style>
 </head>
@@ -272,19 +216,15 @@ body.in-box #boxView { display: block; }
       <section>
         <h3>あそびかた</h3>
         <ul>
-          <li>主人公の肩越しに見る視点。<b>黄色いマーカー</b>が次の目的地、右上のレーダーに道順が出る</li>
-          <li>床に映る敵の<b>黄色い扇形</b>が視界。入り続けると「！」で見つかる。画面中央の矢印は気づかれかけている敵の方向</li>
-          <li>しゃがむ・机の陰・ロッカー・ダンボールで身を隠せ</li>
-          <li>背後から近づいてアクションで<b>絞め落とし</b>。倒れた敵はガムテープで縛れる</li>
-          <li>走ると足音が出る。チョークを投げて気をそらせ</li>
+          <li>見つからないように、<b>黄色い印</b>の場所を目指す</li>
+          <li>敵の<b>背後</b>から殴れば一撃。しゃがむと見つかりにくい</li>
         </ul>
       </section>
       <section>
         <h3>操作（スマホは横向き）</h3>
         <ul>
-          <li>スマホ：左下の十字キーで移動（「走る」をONで走る）、画面をドラッグで向きを変える、右下のボタンでアクション／アイテム／しゃがむ</li>
-          <li>視点はポーズメニュー（PCは<kbd>V</kbd>）で「肩越し」と「一人称」を切りかえ</li>
-          <li>PC：マウスで視点（画面クリックで固定、<kbd>Esc</kbd>で解除）　<kbd>WASD</kbd>移動　<kbd>←</kbd><kbd>→</kbd>旋回　<kbd>Shift</kbd>忍び足　<kbd>E</kbd>/<kbd>Space</kbd>アクション　<kbd>F</kbd>アイテム使用　<kbd>Q</kbd>持ちかえ　<kbd>C</kbd>しゃがむ　<kbd>Esc</kbd>ポーズ</li>
+          <li>スマホ：左のスティックで移動、右のボタンで殴る・しゃがむ・走る</li>
+          <li>PC：<kbd>WASD</kbd>移動　<kbd>Shift</kbd>走る　<kbd>E</kbd>殴る　<kbd>C</kbd>しゃがむ　マウスで視点</li>
         </ul>
       </section>
     </div>
@@ -294,52 +234,29 @@ body.in-box #boxView { display: block; }
 
 <section id="hud" hidden>
   <div class="tl">
-    <div class="life"><span class="life-label">LIFE</span><span class="life-bar"><i id="lifeFill"></i></span><span id="lifeNum">100</span></div>
-    <span id="loc"></span>
+    <span class="life-bar" aria-label="体力"><i id="lifeFill"></i></span>
     <div id="obj"></div>
-    <span id="stance"></span>
   </div>
   <div class="phase sneak" id="phase"><b></b><span id="phaseT"></span></div>
   <div class="tr">
     <canvas id="radar" width="150" height="150" aria-label="レーダー"></canvas>
-    <div class="tr-row">
-      <button type="button" class="icon-btn" id="btnPause" aria-label="ポーズ">II</button>
-    </div>
+    <button type="button" class="icon-btn" id="btnPause" aria-label="ポーズ">II</button>
   </div>
-  <div id="crosshair"></div>
   <div id="susp"></div>
   <div id="wp" hidden><span id="wpArrow">▼</span><span id="wpLabel"></span></div>
-  <div id="toast"></div>
-  <div id="itemCard" hidden role="dialog" aria-label="アイテムの使い方">
-    <span class="ic-eyebrow">入手したアイテム</span>
-    <strong id="icName"></strong>
-    <p id="icHow"></p>
-    <span id="icSwitch"></span>
-    <span class="ic-close">タップで閉じる</span>
-  </div>
-  <div id="sub"><span class="who"></span><span class="txt"></span></div>
-  <div class="equip-wrap">
-    <span id="actHint"></span>
-    <button type="button" id="equip" aria-label="アイテム持ちかえ"><span id="equipName">素手</span><span id="equipCount"></span><span id="equipHow"></span></button>
-    <span id="keyItems"></span>
-  </div>
-  <div class="keys-help">マウス 視点（クリックで固定）　<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 忍び足<br><kbd>C</kbd> しゃがむ　<kbd>E</kbd> アクション　<kbd>F</kbd> アイテム　<kbd>Q</kbd> 持ちかえ　<kbd>V</kbd> 視点</div>
+  <div class="keys-help"><kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 走る　<kbd>E</kbd> 殴る　<kbd>C</kbd> しゃがむ　マウス 視点</div>
   <div class="touch-ui">
     <div id="lookZone"></div>
-    <div class="look-hint">画面をドラッグで向きを変える</div>
-    <div id="dpad" aria-label="移動"><i class="up">▲</i><i class="left">◀</i><i class="mid">移動</i><i class="right">▶</i><i class="down">▼</i></div>
-    <button type="button" id="btnRun" aria-pressed="false">走る<br>OFF</button>
+    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
     <div class="pad">
-      <button type="button" id="btnA"><span id="btnALabel">アクション</span></button>
-      <button type="button" id="btnB"><span><span id="btnBItem">チョーク</span><b id="btnBLabel">使う</b></span></button>
+      <button type="button" id="btnA"><span id="btnALabel">殴る</span></button>
       <button type="button" id="btnC"><span id="btnCLabel">しゃがむ</span></button>
-      <button type="button" id="btnX"><span>持ち<br>かえ</span></button>
+      <button type="button" id="btnRun" aria-pressed="false">走る</button>
     </div>
   </div>
 </section>
 
 <div id="lockerView"></div>
-<div id="boxView"></div>
 <div id="flash"></div>
 
 <section id="cine" hidden>
@@ -357,7 +274,6 @@ body.in-box #boxView { display: block; }
     <div class="btns">
       <button type="button" class="btn primary" id="resume">つづける</button>
       <button type="button" class="btn" id="restart">最初から</button>
-      <button type="button" class="btn" id="btnView">視点：肩越し</button>
       <button type="button" class="btn" id="muteBtn">音：ON</button>
       <button type="button" class="btn" id="quitBtn">タイトルへ</button>
     </div>
