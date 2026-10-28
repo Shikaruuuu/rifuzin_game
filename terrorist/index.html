@@ -71,6 +71,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; }
+.tl, #keyItems, #actHint { text-shadow: 0 1px 2px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.6); }
 .tl { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: var(--safe-l); display: grid; gap: 4px; width: min(40vw, 320px); }
 .life { display: flex; align-items: center; gap: 8px; }
 .life-label { font-family: var(--f-display); font-size: 12px; letter-spacing: .12em; color: var(--radar); }
@@ -114,7 +115,9 @@ body:not(.touch) #sub { bottom: calc(var(--safe-b) + 84px); }
 /* タッチ操作 */
 .touch-ui { display: none; }
 body.touch .touch-ui { display: block; }
-#stickZone { position: absolute; left: 0; bottom: 0; width: 46%; height: 72%; pointer-events: auto; touch-action: none; }
+#stickZone { position: absolute; left: 0; bottom: 0; width: 46%; height: 78%; pointer-events: auto; touch-action: none; }
+#lookZone { position: absolute; right: 0; bottom: 0; width: 54%; height: 82%; pointer-events: auto; touch-action: none; }
+.look-hint { position: absolute; right: calc(var(--safe-r) + 250px); bottom: calc(var(--safe-b) + 40px); font-size: 11px; color: rgba(236,234,225,.45); pointer-events: none; }
 #stickBase { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(143,224,176,.45); background: rgba(10,20,15,.3); opacity: 0; transition: opacity .1s; pointer-events: none; }
 #stickBase.on { opacity: 1; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%; background: rgba(143,224,176,.55); transform: translate(-50%,-50%); }
@@ -133,6 +136,34 @@ body.touch .touch-ui { display: block; }
 #btnC { width: 64px; height: 64px; right: 102px; bottom: 90px; }
 #btnX { width: 54px; height: 54px; right: 16px; bottom: 120px; }
 .pad b { font-family: var(--f-display); font-weight: 400; font-size: 17px; }
+
+/* 一人称の照準・目的地・気配 */
+#crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(236,234,225,.85); box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+#wp { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 2px; margin: -18px 0 0 -60px; width: 120px; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+#wpArrow { color: var(--gold); font-size: 20px; line-height: 1; animation: bob 1s ease-in-out infinite; }
+#wpLabel { font-size: 12px; font-weight: 700; color: var(--gold); background: rgba(0,0,0,.55); padding: 1px 8px; border-radius: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@keyframes bob { 50% { transform: translateY(4px); } }
+#susp { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+#susp i { position: absolute; left: -12px; top: -16px; width: 24px; height: 32px; background: var(--gold); clip-path: polygon(50% 0, 100% 100%, 50% 72%, 0 100%); transition: opacity .15s; }
+#susp i.red { background: var(--alert); }
+
+/* ロッカーの中・ダンボールの中 */
+#lockerView, #boxView { position: fixed; inset: 0; pointer-events: none; display: none; }
+body.in-locker #lockerView { display: block; }
+body.in-box #boxView { display: block; }
+#lockerView {
+  background:
+    repeating-linear-gradient(180deg, #11161b 0 12px, transparent 12px 34px) center 50% / 50% 36% no-repeat,
+    linear-gradient(#11161b, #11161b) top / 100% 32% no-repeat,
+    linear-gradient(#11161b, #11161b) bottom / 100% 32% no-repeat,
+    linear-gradient(#11161b, #11161b) left / 25% 100% no-repeat,
+    linear-gradient(#11161b, #11161b) right / 25% 100% no-repeat;
+  box-shadow: inset 0 0 120px 40px rgba(0,0,0,.9);
+}
+#lockerView span { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); font-size: 13px; color: var(--dim); letter-spacing: .2em; }
+#boxView { box-shadow: inset 0 0 0 9vh #8a6538, inset 0 0 0 calc(9vh + 3px) #5a4020, inset 0 0 80px 40px rgba(60,40,15,.9); }
+#boxView::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 32%; background: #8a6538; }
+#boxView::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #8a6538; }
 
 /* ---------- 演出 ---------- */
 #flash { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
@@ -203,16 +234,17 @@ body.touch .touch-ui { display: block; }
 
 <section id="title">
   <div class="t-wrap">
-    <p class="t-eyebrow">TACTICAL CLASSROOM ESPIONAGE ACTION</p>
+    <p class="t-eyebrow">FIRST-PERSON CLASSROOM ESPIONAGE</p>
     <h1 class="t-logo">学校に<em>テロリスト</em></h1>
-    <p class="t-sub">5時間目、数学の授業中。教室のドアが開き、覆面の男たちがなだれ込んできた――。男子なら一度は妄想した「あの日」が、ついに来た。掃除用具ロッカーに隠れた中学2年生・ユウトの、ステルスアクション。</p>
+    <p class="t-sub">5時間目、数学の授業中。教室のドアが開き、覆面の男たちがなだれ込んできた――。男子なら一度は妄想した「あの日」が、ついに来た。掃除用具ロッカーに隠れた中学2年生・ユウトの目線で進む、一人称ステルスアクション。</p>
     <p class="t-label">ストーリーを選べ</p>
     <div id="modes"></div>
     <div class="howto">
       <section>
         <h3>あそびかた</h3>
         <ul>
-          <li>敵の<b>黄色い扇形</b>が視界。入り続けると「！」で見つかる</li>
+          <li>一人称視点。<b>黄色いマーカー</b>が次の目的地、右上のレーダーに道順が出る</li>
+          <li>床に映る敵の<b>黄色い扇形</b>が視界。入り続けると「！」で見つかる。画面中央の矢印は気づかれかけている敵の方向</li>
           <li>しゃがむ・机の陰・ロッカー・ダンボールで身を隠せ</li>
           <li>背後から近づいてアクションで<b>絞め落とし</b>。倒れた敵はガムテープで縛れる</li>
           <li>走ると足音が出る。チョークを投げて気をそらせ</li>
@@ -221,8 +253,8 @@ body.touch .touch-ui { display: block; }
       <section>
         <h3>操作（スマホは横向き）</h3>
         <ul>
-          <li>スマホ：画面左をドラッグで移動（大きく倒すと走る）、右のボタンでアクション／アイテム／しゃがむ</li>
-          <li>PC：<kbd>WASD</kbd>移動　<kbd>Shift</kbd>忍び足　<kbd>E</kbd>/<kbd>Space</kbd>アクション　<kbd>F</kbd>アイテム使用　<kbd>Q</kbd>持ちかえ　<kbd>C</kbd>しゃがむ　<kbd>Esc</kbd>ポーズ</li>
+          <li>スマホ：画面左をドラッグで移動（大きく倒すと走る）、画面右をドラッグで視点、右下のボタンでアクション／アイテム／しゃがむ</li>
+          <li>PC：マウスで視点（画面クリックで固定、<kbd>Esc</kbd>で解除）　<kbd>WASD</kbd>移動　<kbd>←</kbd><kbd>→</kbd>旋回　<kbd>Shift</kbd>忍び足　<kbd>E</kbd>/<kbd>Space</kbd>アクション　<kbd>F</kbd>アイテム使用　<kbd>Q</kbd>持ちかえ　<kbd>C</kbd>しゃがむ　<kbd>Esc</kbd>ポーズ</li>
         </ul>
       </section>
     </div>
@@ -244,6 +276,9 @@ body.touch .touch-ui { display: block; }
       <button type="button" class="icon-btn" id="btnPause" aria-label="ポーズ">II</button>
     </div>
   </div>
+  <div id="crosshair"></div>
+  <div id="susp"></div>
+  <div id="wp" hidden><span id="wpArrow">▼</span><span id="wpLabel"></span></div>
   <div id="toast"></div>
   <div id="sub"><span class="who"></span><span class="txt"></span></div>
   <div class="equip-wrap">
@@ -251,8 +286,10 @@ body.touch .touch-ui { display: block; }
     <button type="button" id="equip" aria-label="アイテム持ちかえ"><span id="equipName">素手</span><span id="equipCount"></span></button>
     <span id="keyItems"></span>
   </div>
-  <div class="keys-help"><kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 忍び足　<kbd>C</kbd> しゃがむ<br><kbd>E</kbd> アクション　<kbd>F</kbd> アイテム　<kbd>Q</kbd> 持ちかえ</div>
+  <div class="keys-help">マウス 視点（クリックで固定）　<kbd>WASD</kbd> 移動　<kbd>Shift</kbd> 忍び足<br><kbd>C</kbd> しゃがむ　<kbd>E</kbd> アクション　<kbd>F</kbd> アイテム　<kbd>Q</kbd> 持ちかえ</div>
   <div class="touch-ui">
+    <div id="lookZone"></div>
+    <div class="look-hint">右側ドラッグで視点</div>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
     <div class="stick-hint">ここを<br>ドラッグ</div>
     <div class="pad">
@@ -264,6 +301,8 @@ body.touch .touch-ui { display: block; }
   </div>
 </section>
 
+<div id="lockerView"><span>ロッカーの隙間</span></div>
+<div id="boxView"></div>
 <div id="flash"></div>
 
 <section id="cine" hidden>

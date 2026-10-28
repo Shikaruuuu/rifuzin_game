@@ -99,9 +99,10 @@
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x151a1d);
-  scene.fog = new THREE.Fog(0x151a1d, 26, 48);
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+  scene.background = new THREE.Color(0x9fb4c4);
+  scene.fog = new THREE.Fog(0x9fb4c4, 22, 60);
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200);
+  scene.add(camera);
   scene.add(new THREE.HemisphereLight(0xeef2ff, 0x4a4030, 0.95));
   const sun = new THREE.DirectionalLight(0xfff0d8, 0.75);
   sun.position.set(18, 40, 26);
@@ -114,8 +115,8 @@
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // 縦長の画面では少し引いて見せる
-    camera.fov = w / h < 1 ? 60 : 42;
+    // 一人称視点。縦長の画面では少し広めに
+    camera.fov = w / h < 1 ? 80 : 70;
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
@@ -243,18 +244,10 @@
       girl: null, girlFreed: false, freedRooms: new Set(), anySee: false, objKey: '', gateMsgT: 0,
       hint: { left: false, cqc: false, seen: false }, cleared: false, flags: {},
     };
-    // プレイヤー
-    const pm = MD.player();
-    const boxM = MD.cardboard();
-    boxM.visible = false;
-    pm.group.add(boxM);
-    const marker = MD.label('▼', '#7fe3ff', 64, 0.6);
-    marker.position.y = 2.3;
-    pm.group.add(marker);
-    dyn.add(pm.group);
+    // プレイヤー（一人称なので体は描かない）
     P = {
-      x: TG.PLAYER_START.x, z: TG.PLAYER_START.z, a: Math.PI / 2, hp: 100, crouch: false, hidden: null, inBox: false,
-      model: pm, boxM, marker, inv: Object.assign({ chalk: 0, ext: 0, gun: 0, stun: 0, box: 0, med: 0, tape: 0, key: 0 }, cfg.start.inv),
+      x: TG.PLAYER_START.x, z: TG.PLAYER_START.z, a: Math.PI / 2, pitch: 0, eye: 1.45, bobT: 0, hp: 100, crouch: false, hidden: null, inBox: false,
+      inv: Object.assign({ chalk: 0, ext: 0, gun: 0, stun: 0, box: 0, med: 0, tape: 0, key: 0 }, cfg.start.inv),
       equip: 'chalk', moving: false, running: false, actT: 0, noiseT: 0, regenT: 0, trail: [], stepT: 0, hurtT: 0,
     };
     // 開始時はロッカーの中
@@ -312,7 +305,14 @@
     }
 
     worldRefs.backGate.visible = true;
-    camPos.set(P.x, CAM.y, P.z + CAM.z);
+    // 目的地のビーコン
+    beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 2.6, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+    beacon.position.y = 1.3;
+    beacon.visible = false;
+    dyn.add(beacon);
+    G.guide = null; G.guideT = 0;
+    look.yaw = look.pitch = 0;
+    setViewItem();
     AU.bgm('sneak');
     updateHUD(true);
   }
@@ -791,12 +791,12 @@
       for (const e of G.enemies) if (isActive(e) && sees(e, P.x, P.z, 1, false) > 0) l.compromised = true;
     }
     if (!silent) AU.sfx.door();
-    P.model.group.visible = false;
+    P.a = l.face;
+    P.pitch = 0;
   }
   function exitLocker(forced) {
     const l = P.hidden;
     P.hidden = null;
-    P.model.group.visible = true;
     // ロッカーの正面に出る
     const fx = l.x + 0.5 + Math.sin(l.face) * 1.0, fz = l.z + 0.5 + Math.cos(l.face) * 1.0;
     if (!collides(fx, fz, R_PLAYER)) { P.x = fx; P.z = fz; }
@@ -1026,7 +1026,17 @@
     if (inp.action) { const c = contextAction(); if (c) c.fn(); }
     if (inp.use) useItem();
 
-    if (P.hidden) { regen(dt); return; }
+    // 視点
+    P.a += look.yaw - inp.turn * 2.4 * dt;
+    P.pitch = clamp(P.pitch + look.pitch, -0.75, 0.6);
+    look.yaw = look.pitch = 0;
+    if (P.hidden) {
+      // ロッカーの隙間から見える範囲だけ
+      P.a = P.hidden.face + clamp(angDiff(P.hidden.face, P.a), -0.7, 0.7);
+      P.pitch = clamp(P.pitch, -0.3, 0.2);
+      regen(dt);
+      return;
+    }
 
     const mag = Math.min(1, Math.hypot(inp.x, inp.z));
     if (mag > 0.12 && P.actT <= 0) {
@@ -1035,12 +1045,14 @@
       else if (P.crouch) speed = SPEED.crouch;
       else if (inp.walk || mag < 0.8) speed = SPEED.walk * Math.max(0.55, mag / 0.8);
       else { speed = SPEED.run; P.running = true; }
-      const dx = (inp.x / mag) * speed * dt, dz = (inp.z / mag) * speed * dt;
+      // 視線の向きを基準に、前後左右へ
+      const ix = inp.x / mag, iz = inp.z / mag;
+      const ca = Math.cos(P.a), sa = Math.sin(P.a);
+      const dx = (-ca * ix - sa * iz) * speed * dt, dz = (sa * ix - ca * iz) * speed * dt;
       const bx = P.x, bz = P.z;
       moveBy(P, dx, dz, R_PLAYER);
       P.moving = Math.hypot(P.x - bx, P.z - bz) > speed * dt * 0.2;
-      const target = Math.atan2(inp.x, inp.z);
-      P.a += angDiff(P.a, target) * Math.min(1, dt * 14);
+      if (P.moving) P.bobT += dt * (P.running ? 13 : P.crouch || P.inBox ? 6 : 9);
     }
     // 敵とぶつからない
     for (const e of G.enemies) {
@@ -1065,7 +1077,7 @@
     regen(dt);
     if (!G.hint.left && M.roomAt(P.x, P.z).id !== '2a') {
       G.hint.left = true;
-      say('', '黄色い扇形が敵の視界。しゃがむと見つかりにくく、背後からならアクションで気絶させられる');
+      say('', '床の黄色い扇形が敵の視界。画面の黄色いマーカーが目的地。背後から近づけばアクションで気絶させられる');
     }
   }
   function regen(dt) {
@@ -1156,21 +1168,38 @@
     }
   }
 
+  const DOOR_2A = { x: 24, z: 14.2 };
+  const KEY_POS = { x: 48.5, z: 22.5 };
   function objective() {
     const m = G.mode;
+    const out2a = G.hint.left;
     if (m === 'escape') {
-      if (!G.hint.left) return { text: '教室から抜け出せ', pos: { x: 24.5, z: 13.5 } };
-      if (!P.inv.key) return { text: '用務員室で裏門の鍵を手に入れろ', pos: { x: 48.5, z: 22.5 } };
-      return { text: '裏門から脱出しろ', pos: TG.BACKGATE };
+      if (P.hidden && !out2a) return { text: 'ロッカーの隙間から見張りを観察し、背を向けたら外に出ろ', pos: DOOR_2A, label: '出口' };
+      if (!out2a) return { text: '教室の後ろのドアから廊下へ出ろ', pos: DOOR_2A, label: '後ろのドア' };
+      if (!P.inv.key) return { text: '用務員室（廊下の南側・東寄り）で裏門の鍵を手に入れろ', pos: KEY_POS, label: '裏門の鍵' };
+      return { text: '東の非常口から外へ出て、校庭の東にある裏門から脱出しろ', pos: TG.BACKGATE, label: '裏門' };
     }
     if (m === 'rescue') {
-      if (!G.girlFreed) return { text: '音楽室に捕まった白石さんを助け出せ', pos: G.girl };
-      if (!P.inv.key) return { text: '白石さんを連れて、用務員室で裏門の鍵を探せ', pos: { x: 48.5, z: 22.5 } };
-      return { text: '白石さんと一緒に裏門から脱出しろ', pos: TG.BACKGATE };
+      if (!G.girlFreed) {
+        if (!out2a) return { text: '教室の後ろのドアから廊下へ出て、音楽室へ向かえ', pos: DOOR_2A, label: '後ろのドア' };
+        return { text: '音楽室（廊下の北側・東寄り）に捕まった白石さんを助け出せ', pos: G.girl, label: '白石さん' };
+      }
+      if (!P.inv.key) return { text: '白石さんを連れて、用務員室（廊下の南側）で裏門の鍵を探せ', pos: KEY_POS, label: '裏門の鍵' };
+      return { text: '白石さんと一緒に、校庭の東にある裏門から脱出しろ', pos: TG.BACKGATE, label: '裏門' };
     }
     const left = G.enemies.filter((e) => e.state !== 'tied').length;
-    const rooms = ['2a', '1a', '2b', '3a', 'music'].filter((r) => !G.freedRooms.has(r) && G.hostages.some((h) => h.room === r));
-    return { text: 'テロリストを全員縛り上げろ（残り' + left + '人）' + (rooms.length ? '／仲間を解放して戦力を増やせ' : ''), pos: null };
+    const text = 'テロリストを全員縛り上げろ（残り' + left + '人）';
+    // 倒れている敵 → 解放できる仲間 → 一番近い敵 の順に案内
+    let best = null, bd = 1e9;
+    for (const e of G.enemies) if (e.state === 'down' && dist(P, e) < bd) { best = { pos: e, label: '縛る' }; bd = dist(P, e); }
+    if (!best) {
+      for (const h of G.hostages) {
+        if (h.freed || G.enemies.some((e) => e.room === h.room && isActive(e))) continue;
+        if (dist(P, h) < bd) { best = { pos: h, label: '仲間を解放' }; bd = dist(P, h); }
+      }
+    }
+    if (!best) for (const e of G.enemies) if (isActive(e) && dist(P, e) < bd) { best = { pos: e, label: e.boss ? 'リーダー' : 'テロリスト' }; bd = dist(P, e); }
+    return { text: text + '　仲間を解放すると一緒に戦ってくれる', pos: best ? best.pos : null, label: best ? best.label : '' };
   }
 
   // ===================== 入力 =====================
@@ -1194,15 +1223,17 @@
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (screen === 'play') pause(true); });
 
   function readInput() {
-    let x = 0, z = 0;
-    if (keys.KeyA || keys.ArrowLeft) x -= 1;
-    if (keys.KeyD || keys.ArrowRight) x += 1;
+    let x = 0, z = 0, turn = 0;
+    if (keys.KeyA) x -= 1;
+    if (keys.KeyD) x += 1;
     if (keys.KeyW || keys.ArrowUp) z -= 1;
     if (keys.KeyS || keys.ArrowDown) z += 1;
+    if (keys.ArrowLeft) turn -= 1;
+    if (keys.ArrowRight) turn += 1;
     let walk = !!(keys.ShiftLeft || keys.ShiftRight);
     if (stick.id !== null) { x = stick.x; z = stick.z; walk = false; }
     else if (x || z) { const m = Math.hypot(x, z); x /= m; z /= m; }
-    const out = { x, z, walk, action: pressed.action, use: pressed.use, crouch: pressed.crouch, switchEq: pressed.switchEq };
+    const out = { x, z, turn, walk, action: pressed.action, use: pressed.use, crouch: pressed.crouch, switchEq: pressed.switchEq };
     pressed.action = pressed.use = pressed.crouch = pressed.switchEq = false;
     return out;
   }
@@ -1235,6 +1266,48 @@
   };
   zone.addEventListener('pointerup', endStick);
   zone.addEventListener('pointercancel', endStick);
+  // 視点操作：マウス（クリックでポインタロック）／画面右側のドラッグ
+  const look = { yaw: 0, pitch: 0 };
+  const MOUSE_SENS = 0.0024, TOUCH_SENS = 0.0058;
+  let mouseDrag = false, wasLocked = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || screen !== 'play') return;
+    mouseDrag = true;
+    if (canvas.requestPointerLock && document.pointerLockElement !== canvas) {
+      try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* 使えなければドラッグで操作 */ }
+    }
+  });
+  window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') mouseDrag = false; });
+  window.addEventListener('mousemove', (e) => {
+    if (screen !== 'play') return;
+    if (document.pointerLockElement === canvas || mouseDrag) {
+      look.yaw -= e.movementX * MOUSE_SENS;
+      look.pitch -= e.movementY * MOUSE_SENS;
+    }
+  });
+  document.addEventListener('pointerlockchange', () => {
+    const locked = document.pointerLockElement === canvas;
+    if (!locked && wasLocked && screen === 'play') pause(true);
+    wasLocked = locked;
+  });
+  const lookZone = $('lookZone');
+  const lookT = { id: null, x: 0, y: 0 };
+  lookZone.addEventListener('pointerdown', (e) => {
+    if (lookT.id !== null) return;
+    e.preventDefault();
+    lookT.id = e.pointerId; lookT.x = e.clientX; lookT.y = e.clientY;
+    lookZone.setPointerCapture(e.pointerId);
+  });
+  lookZone.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== lookT.id) return;
+    look.yaw -= (e.clientX - lookT.x) * TOUCH_SENS;
+    look.pitch -= (e.clientY - lookT.y) * TOUCH_SENS;
+    lookT.x = e.clientX; lookT.y = e.clientY;
+  });
+  const endLook = (e) => { if (e.pointerId === lookT.id) lookT.id = null; };
+  lookZone.addEventListener('pointerup', endLook);
+  lookZone.addEventListener('pointercancel', endLook);
+
   function bindBtn(id, fn) {
     const b = $(id);
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); b.classList.add('down'); fn(); });
@@ -1280,7 +1353,8 @@
     setText(hud.equipName, 'eq', eq ? ITEM_INFO[eq].name : '素手');
     setText(hud.equipCount, 'eqc', eq ? (eq === 'box' ? (P.inBox ? 'かぶっている' : '') : eq === 'ext' ? '残' + P.inv.ext + '回' : eq === 'stun' ? '残' + P.inv.stun + '回' : '×' + P.inv[eq]) : '');
     const ki = [];
-    if (P.inv.key) ki.push('🔑 裏門の鍵');
+    if (P.inv.key) ki.push('裏門の鍵');
+    if (G.girlFreed) ki.push('白石さん ' + Math.round(dist(P, G.girl)) + 'm');
     if (P.inv.tape) ki.push('ガムテ×' + P.inv.tape);
     if (G.mode === 'suppress') ki.push('仲間 ' + G.stats.freed + '人');
     setText(hud.keyItems, 'ki', ki.join('　'));
@@ -1291,7 +1365,62 @@
     hud.actLabel.parentElement.classList.toggle('ready', !!c && !c.dim);
     setText(hud.useLabel, 'use', eq ? (eq === 'chalk' ? '投げる' : eq === 'gun' ? '撃つ' : eq === 'ext' ? '噴射' : eq === 'box' ? (P.inBox ? '脱ぐ' : 'かぶる') : eq === 'med' ? '使う' : '使う') : '使う');
     setText(hud.crouchLabel, 'cr', P.crouch ? '立つ' : 'しゃがむ');
-    setText(hud.stance, 'st', P.hidden ? 'ロッカーの中' : P.inBox ? 'ダンボール' : P.crouch ? 'しゃがみ' : '');
+    setText(hud.stance, 'st', P.hidden ? 'ロッカーの中（隙間から外が見える）' : P.inBox ? 'ダンボールをかぶっている' : P.crouch ? 'しゃがみ中' : '');
+    updateSusp();
+  }
+
+  // 気づかれかけている方向の表示
+  const suspEls = [];
+  for (let i = 0; i < 6; i++) { const d = document.createElement('i'); $('susp').appendChild(d); suspEls.push(d); }
+  function updateSusp() {
+    const list = [];
+    for (const e of G.enemies) {
+      if (!isActive(e) || dist(P, e) > 26) continue;
+      const lvl = e.state === 'alert' ? (e.seeP > 0 ? 1.2 : 0) : e.state === 'investigate' ? Math.max(0.35, e.susp) : e.susp;
+      if (lvl > 0.04) list.push([lvl, e]);
+    }
+    list.sort((a, b) => b[0] - a[0]);
+    suspEls.forEach((el, i) => {
+      const it = list[i];
+      if (!it) { el.hidden = true; return; }
+      const [lvl, e] = it;
+      const rel = angDiff(P.a, Math.atan2(e.x - P.x, e.z - P.z));
+      const R = Math.min(window.innerWidth, window.innerHeight) * 0.22;
+      el.hidden = false;
+      el.style.transform = 'translate(' + (-Math.sin(rel) * R) + 'px,' + (-Math.cos(rel) * R) + 'px) rotate(' + (-rel) + 'rad) scale(' + (0.8 + Math.min(1, lvl) * 0.6) + ')';
+      el.className = lvl >= 1 ? 'red' : '';
+      el.style.opacity = String(0.35 + Math.min(1, lvl) * 0.65);
+    });
+  }
+
+  // 目的地マーカー（画面上）
+  const wpEl = $('wp'), wpArrow = $('wpArrow'), wpLabel = $('wpLabel');
+  const wpV = new THREE.Vector3();
+  function updateWaypoint() {
+    const o = objective();
+    if (!o.pos || screen !== 'play') { wpEl.hidden = true; beacon.visible = false; return; }
+    beacon.visible = true;
+    beacon.position.set(o.pos.x, 1.3, o.pos.z);
+    const dx = o.pos.x - P.x, dz = o.pos.z - P.z, d = Math.hypot(dx, dz);
+    const W = window.innerWidth, H = window.innerHeight;
+    const rel = angDiff(P.a, Math.atan2(dx, dz));
+    const hfov = Math.atan(Math.tan((camera.fov * Math.PI) / 360) * camera.aspect);
+    let sx, sy, edge = 0;
+    if (Math.abs(rel) < hfov * 0.92) {
+      wpV.set(o.pos.x, 1.2, o.pos.z).project(camera);
+      sx = ((wpV.x + 1) / 2) * W;
+      sy = ((1 - wpV.y) / 2) * H;
+    } else {
+      edge = rel > 0 ? -1 : 1;
+      sx = edge < 0 ? 0 : W;
+      sy = H * 0.5;
+    }
+    sx = clamp(sx, 70, W - 70);
+    sy = clamp(sy, 120, H - 150);
+    wpEl.hidden = false;
+    wpEl.style.transform = 'translate(' + sx + 'px,' + sy + 'px)';
+    wpArrow.textContent = edge < 0 ? '◀' : edge > 0 ? '▶' : '▼';
+    wpLabel.textContent = (o.label || '目的地') + ' ' + Math.round(d) + 'm';
   }
 
   // レーダー
@@ -1335,10 +1464,21 @@
     const scale = w / (28 * RS);
     rctx.translate(w / 2, h / 2);
     rctx.scale(scale, scale);
+    rctx.rotate(P.a - Math.PI); // 向いている方向が上
     rctx.translate(-P.x * RS, -P.z * RS);
     rctx.drawImage(mapCanvas, 0, 0);
-    // 目標
+    // 目標までのルート
     const o = objective();
+    if (G.guide && G.guide.length) {
+      rctx.strokeStyle = 'rgba(255,211,77,.85)';
+      rctx.lineWidth = RS * 0.4;
+      rctx.setLineDash([RS * 0.8, RS * 0.6]);
+      rctx.beginPath();
+      rctx.moveTo(P.x * RS, P.z * RS);
+      for (const q of G.guide) rctx.lineTo(q.x * RS, q.z * RS);
+      rctx.stroke();
+      rctx.setLineDash([]);
+    }
     if (o.pos && Math.floor(t * 2) % 2 === 0) {
       rctx.fillStyle = '#ffd34d';
       rctx.beginPath(); rctx.arc(o.pos.x * RS, o.pos.z * RS, RS * 0.9, 0, Math.PI * 2); rctx.fill();
@@ -1415,21 +1555,46 @@
   }
 
   // ===================== 描画の同期 =====================
-  const CAM = { y: 16, z: 9.5 };
-  const camPos = new THREE.Vector3();
-  const camLook = new THREE.Vector3();
   let shake = 0;
+  let beacon = null;
+
+  // 手元（一人称の腕と持っているアイテム）
+  const viewModel = new THREE.Group();
+  camera.add(viewModel);
+  const vmItem = new THREE.Group();
+  function onTop(obj) {
+    obj.traverse((m) => {
+      if (!m.isMesh) return;
+      m.material = m.material.clone();
+      m.material.depthTest = false;
+      m.renderOrder = 20;
+    });
+    return obj;
+  }
+  viewModel.add(onTop(MD.box(0.08, 0.08, 0.5, 0x1a1d29, 0.3, -0.32, -0.5)));
+  viewModel.add(onTop(MD.box(0.07, 0.07, 0.09, 0xf1c7a0, 0.3, -0.3, -0.78)));
+  vmItem.position.set(0.3, -0.27, -0.85);
+  viewModel.add(vmItem);
+  let vmType = null;
+  function setViewItem() {
+    const eq = P && P.equip && P.inv[P.equip] ? P.equip : null;
+    const type = eq === 'gun' ? 'gun' : eq;
+    if (type === vmType) return;
+    vmType = type;
+    while (vmItem.children.length) vmItem.remove(vmItem.children[0]);
+    if (type && type !== 'box') {
+      const m = onTop(MD.item(type));
+      m.scale.setScalar(type === 'ext' ? 0.4 : 0.45);
+      m.position.y = type === 'ext' ? -0.14 : -0.04;
+      vmItem.add(m);
+    }
+  }
+
   function syncVisuals(dt, t) {
-    // プレイヤー
-    const pg = P.model.group;
-    pg.position.set(P.x, 0, P.z);
-    pg.rotation.y = P.a;
-    P.boxM.visible = P.inBox;
-    P.model.body.visible = !P.inBox;
-    MD.pose(P.model, P.crouch ? 'crouch' : 'stand', P.moving, dt, P.running ? 11 : P.crouch ? 6 : 8);
-    if (P.actT > 0 && !P.inBox) { P.model.armR.rotation.x = -1.6; P.model.armL.rotation.x = -1.2; }
-    if (P.inBox && P.moving) P.boxM.position.y = Math.abs(Math.sin(t * 10)) * 0.04;
-    P.marker.position.y = (P.inBox ? 1.3 : P.crouch ? 1.6 : 2.2) + Math.sin(t * 4) * 0.08;
+    setViewItem();
+    viewModel.visible = !P.hidden && !P.inBox && screen !== 'cine';
+    const swing = P.actT > 0 ? Math.sin((P.actT / 0.5) * Math.PI) : 0;
+    viewModel.position.set(Math.cos(P.bobT * 0.5) * 0.012, Math.abs(Math.sin(P.bobT * 0.5)) * 0.015 - (P.crouch ? 0.02 : 0), -swing * 0.25);
     // 敵
     for (const e of G.enemies) {
       const g = e.model.group;
@@ -1458,17 +1623,23 @@
     worldRefs.policeLights.forEach((m, i) => { m.visible = (Math.floor(t * 4) + i) % 2 === 0; });
   }
   function updateCamera(dt) {
-    const tx = P.x, tz = P.z;
-    const target = new THREE.Vector3(tx, CAM.y, tz + CAM.z);
-    camPos.lerp(target, Math.min(1, dt * 5));
-    camLook.lerp(new THREE.Vector3(tx, 0.6, tz), Math.min(1, dt * 6));
-    camera.position.copy(camPos);
+    const eye = P.hidden ? 1.45 : P.inBox ? 0.55 : P.crouch ? 0.95 : 1.5;
+    P.eye += (eye - P.eye) * Math.min(1, dt * 10);
+    let x = P.x, z = P.z;
+    if (P.hidden) {
+      // ロッカーの中、扉の隙間のすぐ後ろ
+      x = P.hidden.x + 0.5 + Math.sin(P.hidden.face) * 0.36;
+      z = P.hidden.z + 0.5 + Math.cos(P.hidden.face) * 0.36;
+    }
+    const bob = P.moving ? Math.sin(P.bobT) * (P.running ? 0.05 : 0.025) : 0;
+    camera.position.set(x, P.eye + bob, z);
     if (shake > 0) {
       shake -= dt;
-      camera.position.x += (Math.random() - 0.5) * shake * 1.2;
-      camera.position.z += (Math.random() - 0.5) * shake * 1.2;
+      camera.position.x += (Math.random() - 0.5) * shake * 0.3;
+      camera.position.y += (Math.random() - 0.5) * shake * 0.3;
     }
-    camera.lookAt(camLook);
+    const cp = Math.cos(P.pitch);
+    camera.lookAt(camera.position.x + Math.sin(P.a) * cp, camera.position.y + Math.sin(P.pitch), camera.position.z + Math.cos(P.a) * cp);
   }
 
   // ===================== 画面遷移 =====================
@@ -1506,7 +1677,11 @@
     const begin = () => {
       screen = 'play';
       show('hud');
-      sayQueue([['', isTouch ? '掃除用具ロッカーの中。右下のアクションボタンで外に出られる' : 'ロッカーの中。E / Space で外に出る　WASDで移動　Shiftで忍び足'], ['', '見張りが人質の方を向いているうちに。見つかりそうならしゃがめ（机の陰に隠れられる）']]);
+      sayQueue([
+        ['', isTouch ? '掃除用具ロッカーの中。画面の右側をドラッグすると隙間から周りを見回せる' : 'ロッカーの中。マウスで隙間から周りを見回せる（画面をクリックすると視点が固定される）'],
+        ['', '見張りが人質の方を向いたら、' + (isTouch ? 'アクションボタン' : 'E キー') + 'で外へ。黄色いマーカーが目的地だ'],
+        ['', isTouch ? '左側をドラッグで移動。大きく倒すと走る（足音が出る）' : 'WASDで移動　Shiftで忍び足　Cでしゃがむ'],
+      ]);
     };
     // コンティニュー時はオープニングを飛ばす
     if (quick) begin();
@@ -1636,17 +1811,27 @@
       checkWin();
       updateFx(dt);
       updateMessages(dt);
+      G.guideT -= dt;
+      if (G.guideT <= 0) {
+        G.guideT = 0.5;
+        const o = objective();
+        G.guide = o.pos ? findPath(P.x, P.z, o.pos.x, o.pos.z) : null;
+      }
+      updateWaypoint();
       hudT -= dt;
       if (hudT <= 0) { hudT = 0.08; updateHUD(false); drawRadar(t); }
     } else if (G && (screen === 'cine' || screen === 'cine-wait' || screen === 'over')) {
       updateFx(dt);
     }
+    document.body.classList.toggle('in-locker', !!(G && P.hidden && screen !== 'title'));
+    document.body.classList.toggle('in-box', !!(G && P.inBox && screen === 'play'));
     if (G) {
       syncVisuals(screen === 'play' || screen === 'cine' ? dt : 0, t);
       updateCamera(dt);
     } else {
       // タイトル：校舎の上空をゆっくり回る
       titleCam.a += dt * 0.06;
+      viewModel.visible = false;
       camera.position.set(32 + Math.sin(titleCam.a) * 34, 26, 22 + Math.cos(titleCam.a) * 34);
       camera.lookAt(32, 0, 22);
       worldRefs.policeLights.forEach((m, i) => { m.visible = (Math.floor(t * 4) + i) % 2 === 0; });

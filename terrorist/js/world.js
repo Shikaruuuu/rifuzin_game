@@ -45,7 +45,7 @@
     x.textAlign = 'center'; x.textBaseline = 'middle';
     x.fillText(text, 128, 38);
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
-    s.scale.set(1.6, 0.45, 1);
+    s.scale.set(1.15, 0.32, 1);
     return s;
   }
 
@@ -104,7 +104,7 @@
     }));
 
     // 壁（本体＋天端）
-    const WALL_H = 2.2;
+    const WALL_H = 2.8;
     add(instanced(new THREE.BoxGeometry(1, WALL_H, 1), L(0xffffff), lists.wall, (o, c) => {
       o.position.set(c.x + 0.5, WALL_H / 2, c.z + 0.5);
       const inShed = c.x >= 5 && c.x <= 14 && c.z >= 31;
@@ -190,13 +190,13 @@
     });
     // 部屋の札
     const plates = [
-      ['1年A組', 10, 13.5], ['2年A組', 21, 13.5], ['2年B組', 32, 13.5], ['音楽室', 43, 13.5], ['3年A組', 54, 13.5],
-      ['職員室', 9, 17.5], ['保健室', 18, 17.5], ['昇降口', 27, 17.5], ['放送室', 36, 17.5], ['用務員室', 45.5, 17.5], ['理科室', 55, 17.5],
-      ['体育倉庫', 10, 31.5],
+      ['1年A組', 10, 14.25], ['2年A組', 21, 14.25], ['2年B組', 32, 14.25], ['音楽室', 43, 14.25], ['3年A組', 54, 14.25],
+      ['職員室', 7.5, 16.75], ['保健室', 16.5, 16.75], ['昇降口', 27, 16.75], ['放送室', 35.5, 16.75], ['用務員室', 43.5, 16.75], ['理科室', 53.5, 16.75],
+      ['体育倉庫', 15.3, 34.5],
     ];
     plates.forEach(([t, x, z]) => {
       const s = plateSprite(t);
-      s.position.set(x, 2.75, z);
+      s.position.set(x, 2.45, z);
       scene.add(s);
     });
 
@@ -228,6 +228,24 @@
       m.position.set(x, 3, z);
       scene.add(m);
     });
+
+    // 天井（下向きの面だけなので、上空からは見えない）
+    const ceilMat = new THREE.MeshLambertMaterial({ color: 0xe9e6dc, emissive: 0x8f8b80 });
+    const ceiling = (x0, z0, x1, z1) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), ceilMat);
+      m.rotation.x = Math.PI / 2;
+      m.position.set((x0 + x1) / 2, WALL_H, (z0 + z1) / 2);
+      scene.add(m);
+    };
+    ceiling(4, 3, 60, 28);
+    ceiling(5, 31, 15, 40);
+    // 蛍光灯
+    const tubes = [];
+    M.rooms.forEach((r) => {
+      if (r.id === 'yard' || r.id === 'backyard') return;
+      for (let z = r.z0 + 1; z <= r.z1; z += 3) for (let x = r.x0 + 1; x <= r.x1; x += 3) tubes.push({ x, z });
+    });
+    add(instanced(new THREE.BoxGeometry(1.2, 0.05, 0.16), new THREE.MeshBasicMaterial({ color: 0xf6f8ff }), tubes, (o, c) => { o.position.set(c.x + 0.5, WALL_H - 0.03, c.z + 0.5); }));
 
     return { backGate, policeLights: lights };
   }
